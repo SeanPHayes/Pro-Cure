@@ -58,14 +58,17 @@ services/<name>/
   create policy tenant_isolation on s.t for all
     using (platform.tenant_ok(tenant_id)) with check (platform.tenant_ok(tenant_id));
   ```
-- Rows visible to external actors get an _additional_ policy, e.g. vendors:
-
+- `platform.tenant_ok()` admits staff, services and system jobs only — **never vendor or client
+  actors**, even though their tokens carry the tenant id. Rows shared with external actors need their
+  own explicit policies, e.g.:
   ```sql
-  create policy vendor_read on s.t for select
-    using (platform.actor_type() = 'vendor' and tenant_id = platform.tenant_id() and vendor_org_id = platform.org_id());
+  create policy vendor_read on s.t for select using (platform.vendor_ok(tenant_id, vendor_org_id));
+  create policy client_read on s.t for select using (platform.client_ok(tenant_id, client_org_id));
   ```
-
-  Client (owner) access is keyed on the project's `client_org_id` the same way.
+  Child tables use `exists (select 1 from s.parent p where p.id = parent_id and platform.vendor_ok(...))`.
+  If an external actor must write (e.g. a vendor entering a price), either add a narrow
+  `for update/insert` policy with the same predicate, or validate in the API under the caller's RLS and
+  then perform the write with `withTenant(...)` (attributing the user in the audit log).
   RLS limits **rows**; the API limits **columns** (see "External actors").
 - Audited tables: `create trigger audit after insert or update or delete on s.t for each row execute
   function platform.audit('<entity_type>'[, '<parent_id_column>', '<parent_entity_type>']);`
