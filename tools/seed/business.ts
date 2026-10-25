@@ -63,6 +63,7 @@ export async function seedBusiness(ids: SeedIds, only?: string[]) {
   }
   // catalog must run first (vendors/brands referenced by everything else)
   stages.sort((a, b) => (a[0] === 'catalog' ? -1 : b[0] === 'catalog' ? 1 : 0));
+  if (only?.length) await hydrate(ctx);
   for (const [name, fn] of stages) {
     if (only?.length && !only.includes(name)) continue;
     console.log(`Seeding ${name}…`);
@@ -70,4 +71,44 @@ export async function seedBusiness(ids: SeedIds, only?: string[]) {
     await drainEvents();
   }
   await closeApps();
+}
+
+/** When running individual stages against an existing database, rebuild ctx.out from the APIs. */
+async function hydrate(ctx: Ctx) {
+  const m = ctx.staff.marcus;
+  const vendors = await call<any>(m, 'catalog', 'GET', '/vendors?onlyMine=true&limit=200').catch(() => null);
+  if (vendors) {
+    const { VENDORS: list } = await import('./people.js');
+    ctx.out.vendorIds = Object.fromEntries(
+      list.map((v) => [v.key, (vendors.items ?? vendors).find((x: any) => x.name === v.name)?.id]),
+    );
+  }
+  const stds = await call<any>(m, 'catalog', 'GET', '/brand-standards?limit=200').catch(() => null);
+  if (stds) {
+    ctx.out.standards = {};
+    ctx.out.brands = {};
+    for (const s of stds.items ?? stds) {
+      const full = await call<any>(m, 'catalog', 'GET', `/brand-standards/${s.id}`);
+      const [brand, pkg] = String(s.name).split(' – ');
+      ctx.out.standards[`${brand}|${pkg}`] = { id: s.id, items: full.items };
+      ctx.out.brands[brand!] = s.brandId;
+    }
+  }
+  const projects = await call<any>(
+    m,
+    'projects',
+    'GET',
+    '/projects?limit=100&status=active,closed,won,on_hold',
+  ).catch(() => null);
+  if (projects) {
+    const keyOf: Record<string, string> = {
+      'Home2 Suites Raleigh-Durham Airport': 'home2',
+      'Hampton Inn Wilmington Riverfront Renovation': 'hampton',
+      'Tru by Hilton Cary': 'tru',
+      'Home2 Suites Greensboro Coliseum': 'greensboro',
+      'Courtyard Durham Downtown Refresh': 'durham',
+    };
+    ctx.out.projects = {};
+    for (const p of projects.items ?? projects) if (keyOf[p.name]) ctx.out.projects[keyOf[p.name]!] = p;
+  }
 }
