@@ -456,6 +456,116 @@ describe('AI routing (internal)', () => {
     ).toBe(422);
   });
 
+  it('route_to_po suggestions file the email; update_ship_date records an explanatory error', async () => {
+    const id = await pending('Updated ship schedule');
+    const poId = crypto.randomUUID();
+    const r = await route(id, {
+      status: 'needs_review',
+      confidence: 0.4,
+      reasons: ['2 possible purchase orders — needs a human'],
+      suggestions: [
+        {
+          type: 'route_to_po',
+          label: 'Route to PO-26-0009',
+          payload: { entityType: 'purchase_order', entityId: poId, poNumber: 'PO-26-0009' },
+        },
+        { type: 'update_ship_date', label: 'Update ship date', payload: { poId, newShipDate: '2026-11-18' } },
+      ],
+    });
+    // route_to_po counts as a routing suggestion: no extra route_to_thread is prepended.
+    expect(r.json().suggestions.map((s: Row) => s.type)).toEqual(['route_to_po', 'update_ship_date']);
+    const u = await app.inject({
+      method: 'POST',
+      url: `/inbound/${id}/suggestions/1/apply`,
+      headers: auth(a.adminToken),
+    });
+    expect(u.json().suggestions[1].error).toMatch(/not applied automatically/);
+    const t = await app.inject({
+      method: 'POST',
+      url: `/inbound/${id}/suggestions/0/apply`,
+      headers: auth(a.adminToken),
+    });
+    expect(t.json()).toMatchObject({
+      status: 'routed',
+      routedEntityType: 'purchase_order',
+      routedEntityId: poId,
+    });
+  });
+
+  it('set_tracking with only a poId uses that PO’s open shipment without tracking', async () => {
+    const id = await pending('Tracking by PO');
+    const poId = crypto.randomUUID();
+    const shipped = crypto.randomUUID();
+    const open = crypto.randomUUID();
+    vi.mocked(clients.listOpenShipments).mockResolvedValueOnce([
+      { id: shipped, poId, hasTracking: true, estimatedShipDate: null },
+      { id: open, poId, hasTracking: false, estimatedShipDate: null },
+      { id: crypto.randomUUID(), poId: crypto.randomUUID(), hasTracking: false, estimatedShipDate: null },
+    ]);
+    await route(id, {
+      status: 'needs_review',
+      confidence: 0.7,
+      reasons: [],
+      suggestions: [
+        { type: 'set_tracking', label: 'Add UPS', payload: { poId, carrier: 'UPS', trackingNumber: '1Z1' } },
+      ],
+    });
+    const r = await app.inject({
+      method: 'POST',
+      url: `/inbound/${id}/suggestions/0/apply`,
+      headers: auth(a.adminToken),
+    });
+    expect(r.json().suggestions[0].appliedAt).toBeTruthy();
+    expect(clients.setShipmentTracking).toHaveBeenLastCalledWith(a.tenantId, open, {
+      carrier: 'UPS',
+      trackingNumber: '1Z1',
+    });
+  });
+
+  it('lists by several statuses and counts per status', async () => {
+    const id = await pending('Counted');
+    const counts = (
+      await app.inject({ method: 'GET', url: '/inbound/counts', headers: auth(a.adminToken) })
+    ).json();
+    expect(counts.pending).toBeGreaterThanOrEqual(1);
+    expect(counts.total).toBe(counts.pending + counts.needs_review + counts.routed + counts.ignored);
+    const list = (
+      await app.inject({
+        method: 'GET',
+        url: '/inbound?status=pending,needs_review&limit=200',
+        headers: auth(a.adminToken),
+      })
+    ).json();
+    expect(list.items.map((i: Row) => i.id)).toContain(id);
+    expect(list.items.every((i: Row) => ['pending', 'needs_review'].includes(i.status as string))).toBe(true);
+    expect(
+      (await app.inject({ method: 'GET', url: '/inbound?status=bogus', headers: auth(a.adminToken) }))
+        .statusCode,
+    ).toBe(400);
+    expect(
+      (await app.inject({ method: 'GET', url: '/inbound/counts', headers: auth(b.adminToken) })).json().total,
+    ).toBe(0);
+  });
+
+  it('stores inbound files linked to the inbound email', async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/inbound/simulate',
+      headers: auth(a.adminToken),
+      payload: {
+        from: 'v@vendor.example',
+        to: 'x@y.example',
+        subject: 'Linked files',
+        text: 'See attached',
+        attachments: [{ filename: 'a.pdf', contentType: 'application/pdf', base64: 'JVBERi0xLjQ=' }],
+      },
+    });
+    const id = res.json().id;
+    const linked = [...storedDocs.values()].filter((d) => d.entityId === id);
+    expect(linked.map((d) => d.kind).sort()).toEqual(['email', 'email_attachment']);
+    expect(linked.every((d) => d.entityType === 'inbound_email')).toBe(true);
+  });
+
   it('routed appends to the entity thread (vendor visibility when vendorOrgId given)', async () => {
     const id = await pending('Ship date update');
     const poId = crypto.randomUUID();

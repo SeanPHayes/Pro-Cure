@@ -88,6 +88,7 @@ async function storeFiles(
   raw: Buffer,
   parsed: ParsedEmail,
   thread: ThreadRow | undefined,
+  inboundId: string,
   log?: Logger,
 ) {
   const visibility = thread?.visibility ?? 'internal';
@@ -104,6 +105,7 @@ async function storeFiles(
     contentType: 'message/rfc822',
     base64: raw.toString('base64'),
     entityType: 'inbound_email',
+    entityId: inboundId,
     kind: 'email',
     visibility: 'internal',
     uploadedByName,
@@ -121,6 +123,7 @@ async function storeFiles(
       contentType: a.contentType,
       base64: a.content.toString('base64'),
       entityType: 'inbound_email',
+      entityId: inboundId,
       kind: 'email_attachment',
       ...share,
       uploadedByName,
@@ -264,13 +267,17 @@ export async function ingestRawEmail(raw: Buffer, opts: IngestOptions): Promise<
     return { inbound: row!, duplicate: !row };
   }
 
-  const files = await storeFiles(tenantId, raw, parsed, thread, log);
+  // Files are linked to the inbound email (documents requires entityType + entityId together), so
+  // the row id is chosen before the files are stored.
+  const inboundId = crypto.randomUUID();
+  const files = await storeFiles(tenantId, raw, parsed, thread, inboundId, log);
   const emitter = serviceEmitter(tenantId, opts.actor ?? null);
 
   return withTenant(tenantId, async (tx) => {
     const [row] = await tx<InboundRow[]>`
       insert into comms.inbound_emails ${tx({
         ...base,
+        id: inboundId,
         tenantId,
         rawDocumentId: files.rawDocumentId,
         attachmentDocumentIds: files.attachments.map((a) => a.documentId),

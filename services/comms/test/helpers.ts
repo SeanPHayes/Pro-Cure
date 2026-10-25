@@ -20,6 +20,9 @@ export const storedDocs = new Map<
     base64: string;
     visibility: string;
     vendorOrgId?: string;
+    entityType?: string;
+    entityId?: string;
+    kind?: string;
   }
 >();
 
@@ -73,6 +76,7 @@ export function stubClients() {
   vi.spyOn(clients, 'getProject').mockResolvedValue({ id: crypto.randomUUID(), clientOrgId: null });
   vi.spyOn(clients, 'setShipmentTracking').mockResolvedValue({ ok: true });
   vi.spyOn(clients, 'setPoRequirement').mockResolvedValue({ ok: true });
+  vi.spyOn(clients, 'listOpenShipments').mockResolvedValue([]);
 }
 
 /** Add an internal user with roles to a tenant (returns id + email). */

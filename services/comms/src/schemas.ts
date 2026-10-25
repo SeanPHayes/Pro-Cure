@@ -218,8 +218,33 @@ export const InboundEmail = z.object({
 
 export const InboundListQuery = z.object({
   ...Paging,
-  status: InboundEmailStatus.optional(),
+  /** One status or a comma-separated list (e.g. "pending,needs_review"). */
+  status: z
+    .string()
+    .optional()
+    .refine(
+      (s) => !s || s.split(',').every((x) => InboundEmailStatus.safeParse(x.trim()).success),
+      'status must be pending, routed, needs_review or ignored (comma-separated)',
+    )
+    .transform((s) => (s ? s.split(',').map((x) => x.trim()) : undefined)),
   q: z.string().trim().min(1).optional(),
+});
+
+export const InboundCounts = z.object({
+  pending: z.number().int(),
+  needs_review: z.number().int(),
+  routed: z.number().int(),
+  ignored: z.number().int(),
+  total: z.number().int(),
+});
+
+export const InboundConfig = z.object({
+  /** Domain whose mail Pro-Cure receives (thread reply addresses are t-<alias>@this domain). */
+  inboundDomain: z.string(),
+  /** Where a tenant forwards a shared mailbox (purchasing@…); the original To: header picks the tenant. */
+  forwardingAddress: z.string(),
+  /** Whether POST /inbound/simulate is available (never in production). */
+  simulatorEnabled: z.boolean(),
 });
 
 export const SesInboundBody = z

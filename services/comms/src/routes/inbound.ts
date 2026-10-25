@@ -18,6 +18,8 @@ import { type InboundRow, type IngestResult, ingestRawEmail, routeToThread } fro
 import { stripQuotedReply } from '../inbound/quotes.js';
 import {
   IdParams,
+  InboundConfig,
+  InboundCounts,
   InboundEmail,
   InboundListItem,
   InboundListQuery,
@@ -33,6 +35,9 @@ import {
 import { getOrCreateThread, previewOf, serviceEmitter, type ThreadRow } from '../threads.js';
 
 const MAX_RAW_BYTES = 40 * 1024 * 1024;
+
+/** Suggestion types that file the email on a thread (ai emits route_to_po for ranked PO candidates). */
+const ROUTE_TYPES = new Set(['route_to_thread', 'route_to_po', 'route']);
 
 /** Known suggestion payload fields (produced by the ai service; validated per type below). */
 interface SuggestionPayload {
@@ -242,7 +247,7 @@ export async function inboundRoutes(app: App) {
         const rows = await tx<(InboundRow & { total: number })[]>`
           select *, count(*) over ()::int as total from comms.inbound_emails
           where true
-            ${status ? tx`and status = ${status}` : tx``}
+            ${status?.length ? tx`and status in ${tx(status)}` : tx``}
             ${
               q
                 ? tx`and (subject ilike ${`%${q}%`} or from_address ilike ${`%${q}%`}
@@ -271,6 +276,53 @@ export async function inboundRoutes(app: App) {
           total: rows[0]?.total ?? 0,
           limit,
           offset,
+        };
+      });
+    },
+  );
+
+  app.get(
+    '/inbound/config',
+    {
+      schema: {
+        tags: ['inbox'],
+        summary: 'Inbound email setup: receiving domain, forwarding address, simulator availability',
+        response: { 200: InboundConfig },
+      },
+    },
+    async (req) => {
+      req.principal.requireInternal();
+      const domain = config().INBOUND_EMAIL_DOMAIN;
+      return {
+        inboundDomain: domain,
+        forwardingAddress: `inbox@${domain}`,
+        simulatorEnabled: config().APP_ENV !== 'production',
+      };
+    },
+  );
+
+  app.get(
+    '/inbound/counts',
+    {
+      schema: {
+        tags: ['inbox'],
+        summary: 'Inbound email counts per status (inbox filter badges)',
+        response: { 200: InboundCounts },
+      },
+    },
+    async (req) => {
+      req.principal.requireInternal();
+      req.principal.require('inbox:triage');
+      return req.tx(async (tx) => {
+        const rows = await tx<{ status: string; n: number }[]>`
+          select status, count(*)::int as n from comms.inbound_emails group by status`;
+        const by = Object.fromEntries(rows.map((r) => [r.status, r.n]));
+        return {
+          pending: by.pending ?? 0,
+          needs_review: by.needs_review ?? 0,
+          routed: by.routed ?? 0,
+          ignored: by.ignored ?? 0,
+          total: rows.reduce((a, r) => a + r.n, 0),
         };
       });
     },
@@ -379,16 +431,26 @@ export async function inboundRoutes(app: App) {
       try {
         switch (s.type) {
           case 'set_tracking': {
-            if (!payload.shipmentId || !payload.carrier || !payload.trackingNumber)
-              throw unprocessable('set_tracking needs shipmentId, carrier and trackingNumber');
-            result = await clients.setShipmentTracking(p.tenantId, payload.shipmentId, {
+            if ((!payload.shipmentId && !payload.poId) || !payload.carrier || !payload.trackingNumber)
+              throw unprocessable('set_tracking needs shipmentId (or poId), carrier and trackingNumber');
+            // The ai router knows the PO, not the shipment: use the PO's next open shipment without tracking.
+            let shipmentId = payload.shipmentId;
+            if (!shipmentId) {
+              const open = (await clients.listOpenShipments(p.tenantId)).filter(
+                (x) => x.poId === payload.poId,
+              );
+              shipmentId = (open.find((x) => !x.hasTracking) ?? open[0])?.id;
+              if (!shipmentId) throw new Error('This purchase order has no open shipment to add tracking to');
+            }
+            result = await clients.setShipmentTracking(p.tenantId, shipmentId, {
               carrier: String(payload.carrier),
               trackingNumber: String(payload.trackingNumber),
               ...(payload.shipDate ? { shipDate: String(payload.shipDate) } : {}),
             });
             break;
           }
-          case 'complete_requirement': {
+          case 'complete_requirement':
+          case 'attach_to_requirement': {
             if (!payload.poId || !payload.kind)
               throw unprocessable('complete_requirement needs poId and kind');
             const documentId =
@@ -405,8 +467,17 @@ export async function inboundRoutes(app: App) {
             break;
           }
           case 'route_to_thread':
+          case 'route_to_po':
           case 'route':
             break;
+          case 'update_ship_date':
+            // orders exposes no internal ship-date endpoint yet; record why instead of failing the call.
+            throw Object.assign(
+              new Error(
+                'Ship-date changes from email are not applied automatically yet. Open the PO and update the ship date there.',
+              ),
+              { status: 501 },
+            );
           default:
             throw unprocessable(`Unknown suggestion type: ${s.type}`);
         }
@@ -418,7 +489,7 @@ export async function inboundRoutes(app: App) {
       return req.tx(async (tx) => {
         const fresh = await loadInbound(tx, id, true);
         let current = fresh;
-        if (!error && (s.type === 'route_to_thread' || s.type === 'route')) {
+        if (!error && ROUTE_TYPES.has(s.type)) {
           const thread = await targetThread(tx, p.tenantId, payload, fresh.subject || 'Email');
           current = await routeToThread(
             tx,
@@ -519,7 +590,7 @@ export async function inboundRoutes(app: App) {
         const [r] = await tx<InboundRow[]>`
           update comms.inbound_emails set status = 'needs_review', routing = ${tx.json(routing as never)},
             suggestions = ${tx.json(
-              (b.entityType && b.entityId && !b.suggestions.some((s) => s.type === 'route_to_thread')
+              (b.entityType && b.entityId && !b.suggestions.some((s) => ROUTE_TYPES.has(s.type))
                 ? [
                     {
                       type: 'route_to_thread',

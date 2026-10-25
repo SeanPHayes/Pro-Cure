@@ -100,6 +100,13 @@ export const clients = {
     return callService('orders', `/internal/shipments/${shipmentId}/tracking`, { query: { tenantId }, body });
   },
 
+  /** orders: open (undelivered) shipments of the tenant, to resolve a PO's shipment for set_tracking. */
+  listOpenShipments(
+    tenantId: string,
+  ): Promise<{ id: string; poId: string; hasTracking: boolean; estimatedShipDate: string | null }[]> {
+    return callService('orders', '/internal/shipments/open', { query: { tenantId } });
+  },
+
   /** orders: set a pre-order requirement (inbox suggestion `complete_requirement`). */
   setPoRequirement(
     tenantId: string,

@@ -1,5 +1,5 @@
 import { page } from '@procure/domain';
-import { type App, badRequest, conflict, forbidden, must, notFound, type Tx, z } from '@procure/platform';
+import { ActivityEntry, type App, badRequest, conflict, forbidden, listActivity, must, notFound, type Tx, z } from '@procure/platform';
 import {
   catalogTx,
   contributorTenant,
@@ -223,6 +223,23 @@ export async function brandStandardRoutes(app: App) {
         return must(await getStandard(tx, s.id, req.principal.tenantId), 'Brand standard');
       });
     },
+  );
+
+  app.get(
+    '/brand-standards/:id/activity',
+    {
+      schema: {
+        tags: ['brand-standards'],
+        summary: 'Change history of a package and its items',
+        params: IdParams,
+        response: { 200: z.array(ActivityEntry) },
+      },
+    },
+    async (req) =>
+      catalogTx(req, async (tx) => {
+        must(await getStandard(tx, req.params.id, req.principal.tenantId), 'Brand standard');
+        return listActivity(tx, 'brand_standard', req.params.id, { includeChildren: true, limit: 200 });
+      }),
   );
 
   app.post(
