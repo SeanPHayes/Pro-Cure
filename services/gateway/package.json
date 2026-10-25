@@ -1,0 +1,18 @@
+{
+  "name": "@procure/gateway",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Local API gateway. In AWS, API Gateway (HTTP API) provides the same routing.",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/main.ts",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run --passWithNoTests"
+  },
+  "dependencies": {
+    "@fastify/http-proxy": "^11.6.5",
+    "@procure/domain": "workspace:*",
+    "@procure/platform": "workspace:*",
+    "fastify": "^5.12.7"
+  }
+}

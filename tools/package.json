@@ -1,0 +1,15 @@
+{
+  "name": "@procure/tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "@procure/domain": "workspace:*",
+    "@procure/platform": "workspace:*",
+    "postgres": "^3.4.9",
+    "pdf-lib": "^1.17.1"
+  }
+}

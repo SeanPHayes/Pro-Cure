@@ -1,0 +1,35 @@
+{
+  "name": "pro-cure",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Pro-Cure — enterprise hospitality FF&E procurement platform",
+  "type": "module",
+  "packageManager": "pnpm@10.28.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "node tools/dev.mjs",
+    "db:create": "node tools/db-create.mjs",
+    "db:migrate": "tsx tools/migrate.ts",
+    "db:seed": "tsx tools/seed/index.ts",
+    "db:reset": "node tools/db-create.mjs --drop && tsx tools/migrate.ts && tsx tools/seed/index.ts",
+    "typecheck": "pnpm -r --parallel typecheck",
+    "test": "pnpm -r test",
+    "lint": "biome check .",
+    "format": "biome format --write .",
+    "openapi": "tsx tools/openapi.ts"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.6.3",
+    "@types/node": "^22.19.0",
+    "tsx": "^4.23.15",
+    "typescript": "5.9.3",
+    "vitest": "^5.0.5"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
+  }
+}
