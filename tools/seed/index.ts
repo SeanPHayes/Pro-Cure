@@ -8,6 +8,9 @@ import { seedIdentity } from './identity.js';
  */
 async function main() {
   process.env.APP_ENV ??= 'local';
+  process.env.AUTH_KEYS_DIR ??= `${process.cwd()}/.local-storage/keys`;
+  process.env.LOG_LEVEL ??= 'warn';
+  process.env.JOBS_ENABLED = 'false';
   console.log('Seeding identity…');
   const ids = await seedIdentity();
   console.log(`  tenant ${ids.tenantId}, ${Object.keys(ids.users).length} staff`);
