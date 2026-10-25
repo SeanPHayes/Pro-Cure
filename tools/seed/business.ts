@@ -1,6 +1,6 @@
 import type { SeedIds } from './identity.js';
-import { type Actor, actor, call, closeApps, day, drainEvents } from './lib.js';
-import { CLIENTS, STAFF, TENANT } from './people.js';
+import { type Actor, actor, call, closeApps, day, drainEvents, loadAll } from './lib.js';
+import { CLIENTS, STAFF, TENANT, VENDORS } from './people.js';
 import { seedProjects } from './projects.js';
 
 export interface Ctx {
@@ -37,7 +37,20 @@ export async function seedBusiness(ids: SeedIds, only?: string[]) {
         email: u.email,
         orgName: c.name,
       });
-  const ctx: Ctx = { ids, staff, clients, vendors: {}, call, day, out: {} };
+  const vendors: Record<string, Actor> = {};
+  for (const v of VENDORS)
+    if (v.portalUser)
+      vendors[v.key] = await actor(ids, {
+        userId: ids.vendorUsers[v.key]!,
+        orgId: ids.vendorOrgs[v.key]!,
+        actor: 'vendor',
+        roles: ['vendor_admin'],
+        name: v.portalUser.name,
+        email: v.portalUser.email,
+        orgName: v.name,
+      });
+  await loadAll();
+  const ctx: Ctx = { ids, staff, clients, vendors, call, day, out: {} };
 
   const stages: [string, (c: Ctx) => Promise<void>][] = [['projects', seedProjects]];
   for (const extra of ['catalog', 'quoting', 'orders', 'finance', 'comms', 'ai'] as const) {

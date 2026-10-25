@@ -1,5 +1,5 @@
 import { join } from 'node:path';
-import type { Role, ServiceName } from '@procure/domain';
+import { type Role, SERVICES, type ServiceName } from '@procure/domain';
 import {
   type App,
   buildService,
@@ -26,6 +26,13 @@ async function load(name: ServiceName): Promise<App> {
   const def = mod[`${name}Service`];
   const app = await buildService(def, rootLogger(`seed:${name}`));
   apps.set(name, app);
+  // Services call each other over HTTP (callService). Listen on the real port so those calls work
+  // even when the dev stack isn't running; if the port is taken, the running service answers.
+  try {
+    await app.listen({ port: SERVICES[name].port, host: '127.0.0.1' });
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'EADDRINUSE') throw err;
+  }
   subs.set(name, def.subscriptions ?? []);
   return app;
 }
@@ -113,6 +120,17 @@ export async function drainEvents(maxRounds = 10) {
         }
       }
       await sql()`update platform.outbox set published_at = now() where id = ${r.id}`;
+    }
+  }
+}
+
+/** Start every service in-process (idempotent) so cross-service calls resolve during seeding. */
+export async function loadAll() {
+  for (const n of Object.keys(SERVICES) as ServiceName[]) {
+    try {
+      await load(n);
+    } catch (err) {
+      console.warn(`  (service ${n} not loaded: ${(err as Error).message.split('\n')[0]})`);
     }
   }
 }

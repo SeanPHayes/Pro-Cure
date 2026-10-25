@@ -8,6 +8,7 @@ export interface SeedIds {
   clientOrgs: Record<string, string>;
   clientUsers: Record<string, string>;
   platformOrgId: string;
+  vendorUsers: Record<string, string>;
   curatorId: string;
 }
 
@@ -43,6 +44,7 @@ export async function seedIdentity(): Promise<SeedIds> {
     for (const s of STAFF) users[s.key] = await user(tenantId, s);
 
     const vendorOrgs: Record<string, string> = {};
+    const vendorUsers: Record<string, string> = {};
     for (const v of VENDORS) {
       if (!v.portalUser) continue;
       const id = await org('vendor', v.name, `vendor-${v.key}`, {
@@ -51,7 +53,7 @@ export async function seedIdentity(): Promise<SeedIds> {
       });
       vendorOrgs[v.key] = id;
       await tx`insert into identity.org_relationships (tenant_id, org_id, kind) values (${tenantId}, ${id}, 'vendor') on conflict do nothing`;
-      await user(id, { ...v.portalUser, roles: ['vendor_admin'] });
+      vendorUsers[v.key] = await user(id, { ...v.portalUser, roles: ['vendor_admin'] });
     }
     const clientOrgs: Record<string, string> = {};
     const clientUsers: Record<string, string> = {};
@@ -69,6 +71,6 @@ export async function seedIdentity(): Promise<SeedIds> {
       title: 'Brand standards curator',
       roles: ['catalog_curator'],
     });
-    return { tenantId, users, vendorOrgs, clientOrgs, clientUsers, platformOrgId, curatorId };
+    return { tenantId, users, vendorOrgs, vendorUsers, clientOrgs, clientUsers, platformOrgId, curatorId };
   });
 }
