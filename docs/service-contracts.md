@@ -16,6 +16,7 @@ Web-app URLs used in emails and notifications (`PUBLIC_WEB_URL` + path):
 
 - `GET /internal/users?tenantId&roles=a,b&ids=a,b&orgId` → `[{ id, email, name, orgId, orgType, roles }]`
 - `GET /orgs/:id` → organization (name, type, address, phone, email, website)
+- `GET /internal/orgs/:id?tenantId` → same, for event handlers and jobs (the org must be the tenant or connected to it)
 
 ## catalog
 

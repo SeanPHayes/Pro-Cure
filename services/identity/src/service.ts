@@ -605,6 +605,25 @@ async function routes(app: App) {
 
   // ---------------------------------------------------------------- internal lookups
   app.get(
+    '/internal/orgs/:id',
+    {
+      config: { internal: true },
+      schema: { hide: true, params: z.object({ id: z.uuid() }), querystring: z.object({ tenantId: z.uuid() }) },
+    },
+    async (req) =>
+      withSystem(async (tx) => {
+        const [o] = await tx<any[]>`
+          select o.id, o.type, o.name, o.legal_name, o.website, o.phone, o.email, o.address, o.logo_url
+          from identity.organizations o
+          where o.id = ${req.params.id}
+            and (o.id = ${req.query.tenantId}
+                 or exists (select 1 from identity.org_relationships r
+                            where r.tenant_id = ${req.query.tenantId} and r.org_id = o.id))`;
+        return must(o, 'Organization');
+      }),
+  );
+
+  app.get(
     '/internal/users',
     {
       config: { internal: true },

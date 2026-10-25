@@ -165,7 +165,7 @@ export class SyncEngine {
     const existing = await this.tx((tx) => getMapping(tx, 'customer', orgId));
     if (existing) return existing.qboId;
     try {
-      const org = await clients.org(this.opts.principal ?? null, orgId).catch(() => null);
+      const org = await clients.org(this.opts.principal ?? null, orgId, this.tenantId).catch(() => null);
       const name = org?.legalName || org?.name || fallbackName;
       const addr = (org?.address ?? {}) as Record<string, string>;
       const e = await this.qbo.createCustomer(orgId, {

@@ -124,10 +124,11 @@ export const clients = {
     });
   },
 
-  /** identity GET /orgs/:id is a user route, so it needs the caller's token. */
-  async org(principal: Principal | null, orgId: string): Promise<OrgInfo | null> {
-    if (!principal) return null;
-    return callService<OrgInfo>('identity', `/orgs/${orgId}`, { principal });
+  /** identity org lookup: the user route with the caller's token, else the internal route (jobs, events). */
+  async org(principal: Principal | null, orgId: string, tenantId?: string): Promise<OrgInfo | null> {
+    if (principal) return callService<OrgInfo>('identity', `/orgs/${orgId}`, { principal });
+    if (!tenantId) return null;
+    return callService<OrgInfo>('identity', `/internal/orgs/${orgId}`, { query: { tenantId } });
   },
 
   renderReport(req: RenderRequest): Promise<RenderedDocument> {
