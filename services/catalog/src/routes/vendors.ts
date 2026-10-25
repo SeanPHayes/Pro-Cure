@@ -1,5 +1,15 @@
 import { page } from '@procure/domain';
-import { type App, conflict, forbidden, must, notFound, type Tx, z } from '@procure/platform';
+import {
+  ActivityEntry,
+  type App,
+  conflict,
+  forbidden,
+  listActivity,
+  must,
+  notFound,
+  type Tx,
+  z,
+} from '@procure/platform';
 import { catalogTx, contributorTenant, isCurator, requireDirectoryRead } from '../access.js';
 import { countOf, like, productSelect, upsertProfile, vendorColumns, withProfiles } from '../repo.js';
 import {
@@ -196,6 +206,26 @@ export async function vendorRoutes(app: App) {
         const [v] = await tx<{ id: string }[]>`select id from catalog.vendors where id = ${req.params.id}`;
         if (!v) throw notFound('Vendor');
         return upsertProfile(tx, p.tenantId, v.id, req.body);
+      });
+    },
+  );
+
+  app.get(
+    '/vendors/:id/activity',
+    {
+      schema: {
+        tags: ['vendors'],
+        summary: 'Field-level history of the vendor record, your private profile and its products',
+        params: IdParams,
+        querystring: z.object({ limit: z.coerce.number().int().min(1).max(500).default(100) }),
+        response: { 200: z.array(ActivityEntry) },
+      },
+    },
+    async (req) => {
+      requireDirectoryRead(req.principal);
+      return req.tx(async (tx) => {
+        must(await loadVendor(tx, req.params.id), 'Vendor');
+        return listActivity(tx, 'vendor', req.params.id, { includeChildren: true, limit: req.query.limit });
       });
     },
   );

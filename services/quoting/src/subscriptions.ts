@@ -28,4 +28,15 @@ export const subscriptions = [
           and not exists (select 1 from quoting.quote_lines l where l.quote_id = q.id and l.ready_to_order and l.is_selected and l.po_id is null)`;
     }
   }),
+  /** orders.po.cancelled → release the lines so they can be ordered again; the quote reopens. */
+  on('orders.po.cancelled', async (event, { tx }) => {
+    const d = event.data;
+    const released = await tx<{ quoteId: string }[]>`
+      update quoting.quote_lines set po_id = null, po_number = null
+      where po_id = ${d.poId} and tenant_id = ${event.tenantId}
+      returning quote_id`;
+    for (const qid of new Set(released.map((r) => r.quoteId)))
+      await tx`update quoting.quotes set status = 'client_approved'
+               where id = ${qid} and status = 'ordered' and tenant_id = ${event.tenantId}`;
+  }),
 ];

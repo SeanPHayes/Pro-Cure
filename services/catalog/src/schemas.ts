@@ -38,6 +38,13 @@ export const ApprovedVendor = z.object({
   name: z.string().min(1),
   model: z.string().optional(),
 });
+/** Input form: a null model (as importers send it) is accepted and stored as absent. */
+export const ApprovedVendorInput = ApprovedVendor.extend({
+  model: z
+    .string()
+    .nullish()
+    .transform((m) => m || undefined),
+});
 
 export const BrandStandardItem = z.object({
   id: z.string(),
@@ -68,7 +75,7 @@ export const BrandStandardItemInput = z.object({
   finish: z.string().nullable().optional(),
   materials: z.string().nullable().optional(),
   attributes: z.record(z.string(), z.unknown()).optional(),
-  approvedVendors: z.array(ApprovedVendor).optional(),
+  approvedVendors: z.array(ApprovedVendorInput).optional(),
   quantityBasis: z.string().nullable().optional(),
   sort: z.number().int().optional(),
 });
@@ -364,7 +371,10 @@ export const InternalVendor = z.object({
     onTimeRate: z.number().nullable(),
     preferred: z.boolean(),
     accountNumber: z.string().nullable(),
+    origin: z.enum(['domestic', 'international']).nullable(),
+    transitDays: z.number().nullable(),
   }),
+  hq: z.object({ city: z.string().nullable(), region: z.string().nullable(), country: z.string().nullable() }),
 });
 
 export const InternalBrandStandard = z.object({

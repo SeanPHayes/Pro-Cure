@@ -1,5 +1,16 @@
 import { page } from '@procure/domain';
-import { type App, badRequest, conflict, forbidden, must, notFound, type Tx, z } from '@procure/platform';
+import {
+  ActivityEntry,
+  type App,
+  badRequest,
+  conflict,
+  forbidden,
+  listActivity,
+  must,
+  notFound,
+  type Tx,
+  z,
+} from '@procure/platform';
 import {
   catalogTx,
   contributorTenant,
@@ -123,6 +134,29 @@ export async function brandStandardRoutes(app: App) {
         return tx<any[]>`
           select area, count(*)::int as count from catalog.brand_standard_items
           where standard_id = ${req.params.id} group by area order by min(sort), area`;
+      });
+    },
+  );
+
+  app.get(
+    '/brand-standards/:id/activity',
+    {
+      schema: {
+        tags: ['brand-standards'],
+        summary: 'Field-level history of a brand-standard package and its items',
+        params: IdParams,
+        querystring: z.object({ limit: z.coerce.number().int().min(1).max(500).default(100) }),
+        response: { 200: z.array(ActivityEntry) },
+      },
+    },
+    async (req) => {
+      requireStandardsRead(req.principal);
+      return catalogTx(req, async (tx) => {
+        must(await getStandard(tx, req.params.id, req.principal.tenantId), 'Brand standard');
+        return listActivity(tx, 'brand_standard', req.params.id, {
+          includeChildren: true,
+          limit: req.query.limit,
+        });
       });
     },
   );

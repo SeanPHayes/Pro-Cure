@@ -62,12 +62,53 @@ export async function listItems(
 }
 
 /** Insert-or-update items by `code` within a standard. Returns created/updated counts and the rows. */
-export async function upsertItems(tx: Db, standardId: string, items: BrandStandardItemInput[]) {
+/** Similarity above which an approved-vendor name is linked to a network vendor automatically. */
+export const VENDOR_LINK_THRESHOLD = 0.7;
+
+/**
+ * Link approved vendors given only by name (e.g. read from a brand-standard PDF) to network vendors when
+ * the name clearly matches one, so items point at vendor records instead of free text.
+ */
+export async function linkApprovedVendors(
+  tx: Db,
+  items: BrandStandardItemInput[],
+): Promise<BrandStandardItemInput[]> {
+  const names = [
+    ...new Set(items.flatMap((i) => (i.approvedVendors ?? []).filter((v) => !v.vendorId).map((v) => v.name))),
+  ];
+  if (!names.length) return items;
+  const found = new Map<string, string>();
+  for (const name of names) {
+    const clean = name
+      .toLowerCase()
+      .replace(/&/g, ' and ')
+      .replace(/[.,'"()]/g, ' ')
+      .replace(/\b(inc|llc|ltd|co|corp|corporation|company|limited|mfg)\b/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
+    if (clean.length < 3) continue;
+    const [m] = await tx<{ id: string; sim: number }[]>`
+      select id, greatest(similarity(lower(name), ${clean}), similarity(lower(name), ${name.toLowerCase()})) as sim
+      from catalog.vendors
+      where lower(name) % ${clean} or lower(name) % ${name.toLowerCase()}
+      order by 2 desc limit 1`;
+    if (m && m.sim >= VENDOR_LINK_THRESHOLD) found.set(name, m.id);
+  }
+  return items.map((i) => ({
+    ...i,
+    approvedVendors: i.approvedVendors?.map((v) =>
+      v.vendorId || !found.has(v.name) ? v : { ...v, vendorId: found.get(v.name) },
+    ),
+  }));
+}
+
+export async function upsertItems(tx: Db, standardId: string, input: BrandStandardItemInput[]) {
   const codes = new Set<string>();
-  for (const it of items) {
+  for (const it of input) {
     if (codes.has(it.code)) throw Object.assign(new Error(`Duplicate code ${it.code}`), { dupe: it.code });
     codes.add(it.code);
   }
+  const items = await linkApprovedVendors(tx, input);
   let created = 0;
   let updated = 0;
   const out: any[] = [];
@@ -158,7 +199,10 @@ export const toInternalVendor = (v: any) => {
       onTimeRate: p?.onTimeRate ?? null,
       preferred: p?.preferred ?? false,
       accountNumber: p?.accountNumber ?? null,
+      origin: p?.origin ?? null,
+      transitDays: p?.transitDays ?? null,
     },
+    hq: { city: v.hqCity ?? null, region: v.hqRegion ?? null, country: v.hqCountry ?? null },
   };
 };
 
