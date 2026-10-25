@@ -215,6 +215,38 @@ describe('invoice lifecycle', () => {
     expect(q.json().items.map((i: any) => i.id)).toEqual([inv.id]);
   });
 
+  it('filters open invoices by aging bucket', async () => {
+    const inv = await sentInvoice(a, 410);
+    const pastDue = addDays(todayIso(), -45);
+    await withOwner(
+      (tx) =>
+        tx`update finance.invoices set issue_date = ${addDays(pastDue, -30)}, due_date = ${pastDue} where id = ${inv.id}`,
+    );
+    const ids = async (aging: string) =>
+      (await get(a.adminToken, `/invoices?projectId=${inv.projectId}&aging=${encodeURIComponent(aging)}`))
+        .json()
+        .items.map((i: any) => i.id);
+    expect(await ids('31-60')).toEqual([inv.id]);
+    expect(await ids('current,1-30')).toEqual([]);
+    expect(await ids('1-30,31-60')).toEqual([inv.id]);
+    expect((await get(a.adminToken, '/invoices?aging=120')).statusCode).toBe(400);
+  });
+
+  it('activity lists invoice, line and payment changes without sync bookkeeping', async () => {
+    const inv = await sentInvoice(a, 520);
+    await post(a.adminToken, `/invoices/${inv.id}/payments`, { amount: 20 });
+    await withOwner((tx) => tx`update finance.invoices set qbo_sync_status = 'synced' where id = ${inv.id}`);
+    const res = await get(a.adminToken, `/invoices/${inv.id}/activity`);
+    expect(res.statusCode).toBe(200);
+    const rows = res.json() as { entityType: string; action: string; changes: Record<string, unknown> }[];
+    expect(rows.some((r) => r.entityType === 'payment' && r.action === 'insert')).toBe(true);
+    expect(rows.some((r) => r.entityType === 'invoice_line')).toBe(true);
+    const updates = rows.filter((r) => r.action === 'update');
+    expect(updates.length).toBeGreaterThan(0);
+    expect(updates.every((r) => !('qboSyncStatus' in r.changes) && !('documentId' in r.changes))).toBe(true);
+    expect((await get(b.adminToken, `/invoices/${inv.id}/activity`)).statusCode).toBe(404);
+  });
+
   it('overdue job marks past-due invoices and notifies accounting', async () => {
     const inv = await sentInvoice(a, 300, 10);
     const later = addDays(todayIso(), 12);

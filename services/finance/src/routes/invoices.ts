@@ -1,8 +1,10 @@
 import { round2 } from '@procure/domain';
 import {
+  ActivityEntry,
   type App,
   badRequest,
   config,
+  listActivity,
   type Principal,
   type Tx,
   unprocessable,
@@ -48,6 +50,22 @@ import {
 } from '../schemas.js';
 
 const TAGS = ['invoices'];
+const ACTIVITY_NOISE = new Set(['qboId', 'qboSyncStatus', 'qboSyncedAt', 'qboError', 'documentId', 'sentAt']);
+
+/** SQL predicate: days past due (current_date − due_date) falls in one of the aging buckets. */
+const AGING_RANGES: Record<string, [number, number]> = {
+  current: [-100000, 0],
+  '1-30': [1, 30],
+  '31-60': [31, 60],
+  '61-90': [61, 90],
+  '90+': [91, 100000],
+};
+function agingSql(tx: Tx, buckets: string[]) {
+  return buckets
+    .map((b) => AGING_RANGES[b]!)
+    .map(([lo, hi]) => tx`(current_date - due_date) between ${lo} and ${hi}`)
+    .reduce((acc, frag) => tx`${acc} or ${frag}`);
+}
 const OWNER_CONTACT_ROLES = ['owner_rep', 'gm'];
 
 /** Project header fields for an invoice; tolerate projects being down when the caller supplied them. */
@@ -131,6 +149,11 @@ export async function invoiceRoutes(app: App) {
               : q.overdue === false
                 ? tx`and not (status in ('sent', 'partially_paid', 'overdue') and balance > 0 and due_date < current_date)`
                 : tx``
+          }
+          ${
+            q.aging?.length
+              ? tx`and status in ('sent', 'partially_paid', 'overdue') and balance > 0 and (${agingSql(tx, q.aging)})`
+              : tx``
           }
           ${
             q.q
@@ -288,6 +311,38 @@ export async function invoiceRoutes(app: App) {
     async (req) => {
       req.principal.require('finance:read');
       return req.tx((tx) => invoiceDetail(tx, req.params.id));
+    },
+  );
+
+  // ------------------------------------------------------------------ activity
+  app.get(
+    '/invoices/:id/activity',
+    {
+      schema: {
+        tags: TAGS,
+        summary: 'Field-level activity for the invoice, its lines and payments',
+        params: IdParams,
+        querystring: z.object({ limit: z.coerce.number().int().min(1).max(1000).default(200) }),
+        response: { 200: z.array(ActivityEntry) },
+      },
+    },
+    async (req) => {
+      req.principal.require('finance:read');
+      return req.tx(async (tx) => {
+        await getInvoice(tx, req.params.id);
+        const rows = await listActivity(tx, 'invoice', req.params.id, {
+          includeChildren: true,
+          limit: req.query.limit,
+        });
+        // Sync bookkeeping (QuickBooks ids/status, rendered PDF ids) is shown elsewhere; keep the feed to business changes.
+        return rows.flatMap((r) => {
+          if (r.action !== 'update') return [r];
+          const changes = Object.fromEntries(
+            Object.entries(r.changes).filter(([k]) => !ACTIVITY_NOISE.has(k)),
+          );
+          return Object.keys(changes).length ? [{ ...r, changes }] : [];
+        });
+      });
     },
   );
 

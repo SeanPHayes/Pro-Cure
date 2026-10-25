@@ -111,6 +111,8 @@ export const InvoiceListQuery = PageQuery.extend({
   status: multi(InvoiceStatus),
   kind: multi(InvoiceKind),
   overdue: boolQuery,
+  /** Open invoices whose days past due fall in any of these buckets. */
+  aging: multi(AgingBucket),
 });
 
 export const LineInput = z.object({

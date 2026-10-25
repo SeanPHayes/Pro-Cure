@@ -15,13 +15,13 @@ import {
 import { ApiError } from '@/lib/api';
 import { hasPerm, useSession } from '@/lib/auth';
 import { date, daysFromToday } from '@/lib/format';
+import { ProjectFinancials } from '@/features/finance/ProjectFinancials';
 import { OverviewTab } from './OverviewTab';
 import { ProjectFormSheet } from './ProjectForm';
 import { ScheduleTab } from './ScheduleTab';
 import {
   GuardedThread,
   ProjectFiles,
-  ProjectFinancials,
   ProjectOrders,
   ProjectQuotes,
 } from './ServicePanels';
@@ -162,7 +162,7 @@ export function Component() {
         {tab === 'schedule' && <ScheduleTab project={p} />}
         {tab === 'quotes' && <ProjectQuotes projectId={p.id} />}
         {tab === 'orders' && <ProjectOrders projectId={p.id} />}
-        {tab === 'financials' && finance && <ProjectFinancials projectId={p.id} budget={p.budget} />}
+        {tab === 'financials' && finance && <ProjectFinancials projectId={p.id} />}
         {tab === 'files' && (
           <Section title="Files">
             <ProjectFiles projectId={p.id} />
