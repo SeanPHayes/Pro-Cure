@@ -1,5 +1,19 @@
-import type { SpecCategory } from '@procure/domain';
-import { callService } from '@procure/platform';
+import type { ServiceName, SpecCategory } from '@procure/domain';
+import { AppError, callService as rawCallService } from '@procure/platform';
+
+/**
+ * callService, but a connection failure ("fetch failed", timeouts) names the service that is down, so the
+ * job error a reviewer sees says "orders is unavailable" instead of a bare network message.
+ */
+const callService = async <T>(service: ServiceName, path: string, opts?: Parameters<typeof rawCallService>[2]) => {
+  try {
+    return await rawCallService<T>(service, path, opts);
+  } catch (err) {
+    if (err instanceof AppError) throw err;
+    const cause = (err as { cause?: { code?: string } }).cause?.code ?? (err as Error).name;
+    throw new AppError(503, 'upstream_unavailable', `${service} is unavailable (${cause || (err as Error).message})`);
+  }
+};
 
 /**
  * Every call this service makes to another service lives here so tests can `vi.mock('../src/clients.js')`.
@@ -85,9 +99,9 @@ export interface BrandStandardItemInput {
   dimensions: string | null;
   finish: string | null;
   materials: string | null;
-  approvedVendors: { name: string; model: string | null }[];
+  approvedVendors: { name: string; model?: string }[];
   quantityBasis: string | null;
-  sourcePage: number | null;
+  attributes?: Record<string, unknown>;
 }
 
 export const upsertBrandStandardItems = (

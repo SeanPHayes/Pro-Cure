@@ -87,18 +87,22 @@ export async function applyBrandSpec(job: JobRow, body: BrandSpecApplyBody, prin
     await upsertBrandStandardItems(
       job.tenantId,
       standardId,
+      // Catalog's item contract: area is required (defaults to General) and approved vendors carry
+      // model only when known; the PDF page is kept as an attribute for traceability.
       chosen.map((i) => ({
         code: i.code,
-        area: i.area,
+        area: i.area?.trim() || 'General',
         category: i.category,
         name: i.name,
         description: i.description,
         dimensions: i.dimensions,
         finish: i.finish,
         materials: i.materials,
-        approvedVendors: i.approvedVendors,
+        approvedVendors: i.approvedVendors
+          .filter((v) => v.name?.trim())
+          .map((v) => (v.model ? { name: v.name, model: v.model } : { name: v.name })),
         quantityBasis: i.quantityBasis,
-        sourcePage: i.sourcePage,
+        attributes: i.sourcePage ? { sourcePage: i.sourcePage } : {},
       })),
     );
     return {

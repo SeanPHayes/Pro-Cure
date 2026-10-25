@@ -20,7 +20,13 @@ import {
 import { heuristicVendorQuote } from '../src/features/vendor-quote/heuristic.js';
 import { matchQuote } from '../src/features/vendor-quote/match.js';
 import { itemsToLines, LocalPdfText } from '../src/text/extract.js';
-import { parseDate, parseLeadTimeWeeks, tokenSetSimilarity } from '../src/text/util.js';
+import {
+  containsCode,
+  parseDate,
+  parseLeadTimeWeeks,
+  SPEC_CODE_RE,
+  tokenSetSimilarity,
+} from '../src/text/util.js';
 import { brandStandardPdf, drawingPacketPdf, scannedPdf, vendorQuotePdf } from './fixtures.js';
 
 const extractor = new LocalPdfText();
@@ -44,6 +50,14 @@ describe('text utilities', () => {
     ).toBeGreaterThan(0.5);
     expect(tokenSetSimilarity('desk chair', 'king headboard')).toBe(0);
   });
+  it('recognises item codes whose brand prefix contains a digit (Home2: H2-CG-01)', () => {
+    for (const c of ['H2-CG-01', 'CG-101', 'FF-04A', 'PA-LB-02', 'LT-3'])
+      expect(`${c}  King headboard`.match(SPEC_CODE_RE)?.[1]).toBe(c);
+    expect('2026-01'.match(SPEC_CODE_RE)).toBeNull();
+    expect(containsCode('Sheet H2 CG 01 elevation', 'H2-CG-01')).toBe(true);
+    expect(containsCode('Sheet H2-CG-011', 'H2-CG-01')).toBe(false);
+  });
+
   it('groups positioned items into lines with column cells', () => {
     const lines = itemsToLines([
       { str: 'Qty', x: 400, y: 700, w: 15, h: 9 },

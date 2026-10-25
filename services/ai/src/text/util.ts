@@ -60,15 +60,19 @@ export const tokenCoverage = (needle: string | null | undefined, haystack: strin
 /** Spec / SKU code comparison key: uppercase, no separators ("cg-101" → "CG101"). */
 export const codeKey = (s: string | null | undefined) => (s ?? '').toUpperCase().replace(/[^A-Z0-9]/g, '');
 
-/** Brand-standard style item codes: GR-01, CG-101, ST-12, LT-3, FF-04A, PA-LB-02. */
-export const SPEC_CODE_RE = /\b([A-Z]{1,4}(?:-[A-Z]{1,3})?-\d{1,4}[A-Z]?)\b/;
+/**
+ * Brand-standard style item codes: GR-01, CG-101, ST-12, LT-3, FF-04A, PA-LB-02, and brand prefixes that
+ * contain a digit such as Home2's H2-CG-01. The first segment must start with a letter.
+ */
+export const SPEC_CODE_RE = /\b([A-Z][A-Z0-9]{0,3}(?:-[A-Z]{1,3})?-\d{1,4}[A-Z]?)\b/;
 export const SPEC_CODE_RE_G = new RegExp(SPEC_CODE_RE.source, 'g');
 
 /** True when `text` contains `code` as a standalone token (tolerant of a missing hyphen). */
 export const containsCode = (text: string, code: string): boolean => {
   const k = codeKey(code);
   if (k.length < 3) return false;
-  const m = code.toUpperCase().match(/^([A-Z-]*?)-?(\d.*)$/);
+  // Split off the trailing number: "H2-CG-01" → "H2-CG" + "01", "FF-04A" → "FF" + "04A".
+  const m = code.toUpperCase().match(/^([A-Z0-9-]*?[A-Z])-?(\d[\dA-Z]*)$/);
   const pattern = m
     ? `(?<![A-Z0-9])${m[1]!.replace(/-/g, '[-\\s]?')}[-\\s]?${m[2]!.replace(/[^A-Z0-9]/g, '')}(?![A-Z0-9])`
     : `(?<![A-Z0-9])${k}(?![A-Z0-9])`;

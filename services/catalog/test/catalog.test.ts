@@ -213,6 +213,42 @@ describe('brands & brand standards', () => {
     expect(noSecret.statusCode).toBe(403);
   });
 
+  it('links approved vendors named in imported items to network vendors', async () => {
+    const vname2 = `Riverside Millwork ${sfx}`;
+    const v = await post('/vendors', a.adminToken, { name: vname2 });
+    expect(v.statusCode).toBe(201);
+    const draft = await post('/brand-standards', a.adminToken, { brandId, name: 'Linking test', version: '1' });
+    const res = await app.inject({
+      method: 'POST',
+      url: `/internal/brand-standards/${draft.json().id}/items?tenantId=${a.tenantId}`,
+      headers: internal,
+      payload: {
+        items: [
+          {
+            code: 'MW-01',
+            name: 'Reception desk',
+            area: 'Lobby',
+            approvedVendors: [
+              { name: `${vname2}, Inc.`, model: null },
+              { name: 'Totally Unknown Fabricators' },
+            ],
+          },
+        ],
+      },
+    });
+    expect(res.statusCode, res.body).toBe(200);
+    const [linked, unknown] = res.json().items[0].approvedVendors;
+    expect(linked).toMatchObject({ vendorId: v.json().id, name: `${vname2}, Inc.` });
+    expect(linked).not.toHaveProperty('model');
+    expect(unknown.vendorId).toBeUndefined();
+  });
+
+  it('search honours limit', async () => {
+    const one = await get('/search?q=lobby&limit=1', a.adminToken);
+    expect(one.statusCode).toBe(200);
+    expect(one.json().brandStandardItems.length).toBeLessThanOrEqual(1);
+  });
+
   it('internal item import works on a tenant draft', async () => {
     const draft = await post('/brand-standards', b.adminToken, {
       brandId,
@@ -310,6 +346,17 @@ describe('vendors', () => {
       (tx) => tx`select tenant_id from catalog.vendor_profiles where vendor_id = ${vendorId}`,
     );
     expect(rows).toHaveLength(2);
+  });
+
+  it("vendor activity shows my firm's profile history but never another firm's private terms", async () => {
+    const aAct = await get(`/vendors/${vendorId}/activity`, a.adminToken);
+    expect(aAct.statusCode).toBe(200);
+    expect(aAct.json().some((e: { entityType: string }) => e.entityType === 'vendor_profile')).toBe(true);
+    const bAct = await get(`/vendors/${vendorId}/activity`, b.adminToken);
+    expect(bAct.statusCode).toBe(200);
+    const leaked = JSON.stringify(bAct.json());
+    expect(leaked).not.toContain('JMH-001');
+    expect(leaked).not.toContain('dana@lakeshore-cg.example');
   });
 
   it('serves the internal vendor contract scoped to the tenant', async () => {

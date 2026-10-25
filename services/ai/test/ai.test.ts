@@ -209,7 +209,17 @@ describe('brand-spec extraction (a)', () => {
     });
     expect(ap.statusCode, ap.body).toBe(200);
     expect(ap.json()).toMatchObject({ entityType: 'brand_standard', entityId: standardId });
-    expect(m.upsertBrandStandardItems.mock.calls[0]![2]).toHaveLength(2);
+    const sent = m.upsertBrandStandardItems.mock.calls[0]![2] as Record<string, any>[];
+    expect(sent).toHaveLength(2);
+    // Catalog contract: area is a non-empty string, approved vendors never carry model: null, and
+    // the source page travels as an attribute (catalog rejects unknown nulls / fields).
+    for (const it of sent) {
+      expect(typeof it.area).toBe('string');
+      expect(it.area.length).toBeGreaterThan(0);
+      expect(it).not.toHaveProperty('sourcePage');
+      for (const v of it.approvedVendors) expect(v.model === undefined || typeof v.model === 'string').toBe(true);
+    }
+    expect(sent.some((it) => it.attributes?.sourcePage)).toBe(true);
   });
 
   it('records failures on the job (missing document, non-PDF) without crashing', async () => {
@@ -703,7 +713,23 @@ describe('risk scoring (e)', () => {
     expect(sum.run.shipmentsScored).toBe(3);
     expect(sum.top[0].shipmentId).toBe(open[2]!.shipmentId);
     expect(Object.values(sum.counts as Record<string, number>).reduce((x, y) => x + y, 0)).toBe(3);
+    // Every level key is snake_case and the counts agree with the scored shipments.
+    expect(Object.keys(sum.counts).sort()).toEqual(['at_risk', 'critical', 'none', 'watch']);
+    for (const level of ['none', 'watch', 'at_risk', 'critical'])
+      expect(sum.counts[level]).toBe(sum.top.filter((t: { level: string }) => t.level === level).length);
     expect(sum.narrative).toMatch(/of 3 open shipments/);
+  });
+
+  it('serves snake_case at_risk counts from the latest run', async () => {
+    await withOwner(
+      (tx) => tx`
+      insert into ai.risk_model_runs (tenant_id, job_id, shipments_scored, vendors_profiled, params, output, run_at)
+      values (${a.tenantId}, null, 4, 1, '{}'::jsonb,
+        ${tx.json({ counts: { none: 1, watch: 1, at_risk: 2, critical: 0 }, narrative: 'x', top: [] } as never)},
+        now() + interval '1 minute')`,
+    );
+    const sum = (await get(a.adminToken, '/risk/summary')).json();
+    expect(sum.counts).toEqual({ none: 1, watch: 1, at_risk: 2, critical: 0 });
   });
 
   it('scheduled risk-model runs for registered tenants', async () => {

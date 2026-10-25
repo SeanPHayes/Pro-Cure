@@ -111,6 +111,14 @@ export async function insightRoutes(app: App) {
             top: [],
           };
         const out = run.output ?? {};
+        // postgres.js camel-cases JSON keys on read, so the stored "at_risk" count arrives as "atRisk".
+        const rawCounts = (out.counts ?? {}) as Record<string, number>;
+        const counts = {
+          none: rawCounts.none ?? 0,
+          watch: rawCounts.watch ?? 0,
+          at_risk: rawCounts.at_risk ?? rawCounts.atRisk ?? 0,
+          critical: rawCounts.critical ?? 0,
+        };
         return {
           run: {
             id: run.id,
@@ -119,7 +127,7 @@ export async function insightRoutes(app: App) {
             vendorsProfiled: run.vendorsProfiled,
             jobId: run.jobId,
           },
-          counts: { none: 0, watch: 0, at_risk: 0, critical: 0, ...(out.counts ?? {}) },
+          counts,
           narrative: out.narrative ?? null,
           top: ((out.top ?? []) as any[]).slice(0, 10).map((s) => ({
             shipmentId: s.shipmentId,
