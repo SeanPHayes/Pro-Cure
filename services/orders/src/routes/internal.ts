@@ -2,7 +2,7 @@ import { type App, notFound, withTenant } from '@procure/platform';
 import { recomputeEscalation, systemEmitter } from '../core.js';
 import { normalizeRiskLevel, rank } from '../domain/escalation.js';
 import { DEFAULT_PARTY, REQUIREMENT_LABELS } from '../domain/requirements.js';
-import { afterRequirementsChanged, applyTracking, setRequirementStatus } from '../ops.js';
+import { afterRequirementsChanged, applyTracking, changeShipDate, setRequirementStatus } from '../ops.js';
 import { InternalRequirementBody, RiskScoresBody, TenantQuery, TrackingBody, z } from './_shared.js';
 
 /** Service-to-service endpoints (x-procure-internal). Tenant comes from the query and is enforced by RLS. */
@@ -160,6 +160,43 @@ export async function internalRoutes(app: App) {
         const s = await applyTracking(tx, systemEmitter(tenantId), req.params.id, req.body);
         if (!s) throw notFound('Shipment');
         return { id: s.id, status: s.status, carrier: s.carrier, trackingNumber: s.trackingNumber };
+      });
+    },
+  );
+
+  app.post(
+    '/internal/shipments/ship-date',
+    {
+      ...internal,
+      schema: {
+        hide: true,
+        querystring: TenantQuery,
+        body: z.object({
+          shipmentId: z.uuid().optional(),
+          /** When only the PO is known (e.g. from an email), the earliest open shipment is used. */
+          poId: z.uuid().optional(),
+          newShipDate: z.iso.date(),
+          note: z.string().max(2000).optional(),
+        }),
+      },
+    },
+    async (req) => {
+      const tenantId = req.query.tenantId;
+      const b = req.body;
+      if (!b.shipmentId && !b.poId) throw notFound('Shipment');
+      return withTenant(tenantId, async (tx) => {
+        const [sh] = await tx<{ id: string; poId: string; projectId: string; estimatedShipDate: string | null }[]>`
+          select id, po_id, project_id, estimated_ship_date from orders.shipments
+          where ${b.shipmentId ? tx`id = ${b.shipmentId}` : tx`po_id = ${b.poId!} and status not in ('shipped', 'in_transit', 'delivered')`}
+          order by estimated_ship_date nulls last, label limit 1`;
+        if (!sh) throw notFound('Open shipment');
+        await changeShipDate(tx, systemEmitter(tenantId), sh, b.newShipDate, 'vendor');
+        await tx`insert into orders.ship_date_confirmations
+                   (tenant_id, shipment_id, requested_at, responded_at, response, previous_date, new_date, note, channel, responded_by_name)
+                 values (${tenantId}, ${sh.id}, now(), now(), 'changed', ${sh.estimatedShipDate}, ${b.newShipDate},
+                         ${b.note ?? 'From vendor email'}, 'email', 'Vendor (email)')`;
+        await recomputeEscalation(tx, sh.poId, systemEmitter(tenantId));
+        return { shipmentId: sh.id, previous: sh.estimatedShipDate, current: b.newShipDate };
       });
     },
   );

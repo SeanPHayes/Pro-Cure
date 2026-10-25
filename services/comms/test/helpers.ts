@@ -75,6 +75,7 @@ export function stubClients() {
   });
   vi.spyOn(clients, 'getProject').mockResolvedValue({ id: crypto.randomUUID(), clientOrgId: null });
   vi.spyOn(clients, 'setShipmentTracking').mockResolvedValue({ ok: true });
+  vi.spyOn(clients, 'setShipDate').mockResolvedValue({ ok: true });
   vi.spyOn(clients, 'setPoRequirement').mockResolvedValue({ ok: true });
   vi.spyOn(clients, 'listOpenShipments').mockResolvedValue([]);
 }

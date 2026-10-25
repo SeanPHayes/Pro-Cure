@@ -456,7 +456,7 @@ describe('AI routing (internal)', () => {
     ).toBe(422);
   });
 
-  it('route_to_po suggestions file the email; update_ship_date records an explanatory error', async () => {
+  it('route_to_po suggestions file the email; update_ship_date moves the PO ship date in orders', async () => {
     const id = await pending('Updated ship schedule');
     const poId = crypto.randomUUID();
     const r = await route(id, {
@@ -479,7 +479,8 @@ describe('AI routing (internal)', () => {
       url: `/inbound/${id}/suggestions/1/apply`,
       headers: auth(a.adminToken),
     });
-    expect(u.json().suggestions[1].error).toMatch(/not applied automatically/);
+    expect(u.json().suggestions[1].error ?? null).toBeNull();
+    expect(clients.setShipDate).toHaveBeenCalledWith(a.tenantId, expect.objectContaining({ poId, newShipDate: '2026-11-18' }));
     const t = await app.inject({
       method: 'POST',
       url: `/inbound/${id}/suggestions/0/apply`,

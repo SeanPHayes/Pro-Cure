@@ -100,6 +100,14 @@ export const clients = {
     return callService('orders', `/internal/shipments/${shipmentId}/tracking`, { query: { tenantId }, body });
   },
 
+  /** orders: change a shipment's estimated ship date (inbox suggestion `update_ship_date`). */
+  setShipDate(
+    tenantId: string,
+    body: { shipmentId?: string; poId?: string; newShipDate: string; note?: string },
+  ): Promise<unknown> {
+    return callService('orders', '/internal/shipments/ship-date', { query: { tenantId }, body });
+  },
+
   /** orders: open (undelivered) shipments of the tenant, to resolve a PO's shipment for set_tracking. */
   listOpenShipments(
     tenantId: string,

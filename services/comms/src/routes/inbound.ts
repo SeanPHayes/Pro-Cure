@@ -45,6 +45,7 @@ interface SuggestionPayload {
   carrier?: string;
   trackingNumber?: string;
   shipDate?: string;
+  newShipDate?: string;
   poId?: string;
   kind?: string;
   status?: string;
@@ -470,14 +471,17 @@ export async function inboundRoutes(app: App) {
           case 'route_to_po':
           case 'route':
             break;
-          case 'update_ship_date':
-            // orders exposes no internal ship-date endpoint yet; record why instead of failing the call.
-            throw Object.assign(
-              new Error(
-                'Ship-date changes from email are not applied automatically yet. Open the PO and update the ship date there.',
-              ),
-              { status: 501 },
-            );
+          case 'update_ship_date': {
+            if ((!payload.shipmentId && !payload.poId) || !payload.newShipDate)
+              throw unprocessable('update_ship_date needs shipmentId (or poId) and newShipDate');
+            result = await clients.setShipDate(p.tenantId, {
+              ...(payload.shipmentId ? { shipmentId: String(payload.shipmentId) } : {}),
+              ...(payload.poId ? { poId: String(payload.poId) } : {}),
+              newShipDate: String(payload.newShipDate),
+              note: `From vendor email: ${inbound.subject ?? ''}`.slice(0, 2000),
+            });
+            break;
+          }
           default:
             throw unprocessable(`Unknown suggestion type: ${s.type}`);
         }
