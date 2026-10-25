@@ -1,3 +1,4 @@
+import { withOwner } from '@procure/platform';
 import type { Ctx } from './business.js';
 import { CLIENTS, STAFF } from './people.js';
 
@@ -252,6 +253,15 @@ export async function seedProjects(ctx: Ctx) {
           /* blocked by an unfinished dependency — leave it open, it reads as overdue */
         }
       }
+      // Seeding completes months of work in one instant, which would pull every finished task's dates
+      // to today. Restore the planned dates and back-date completion to the planned due date.
+      await withOwner(async (tx) => {
+        for (const t of list) {
+          await tx`update projects.tasks set start_date = ${t.startDate}, due_date = ${t.dueDate},
+                     completed_at = case when status = 'done' then (${t.dueDate}::date + time '16:30') else completed_at end
+                   where id = ${t.id} and (status = 'done' or ${t.startDate}::date >= current_date)`;
+        }
+      });
     }
   }
 
