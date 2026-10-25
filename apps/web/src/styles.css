@@ -1,0 +1,172 @@
+@import "tailwindcss";
+@import "@fontsource-variable/instrument-sans";
+
+/*
+  Pro-Cure design tokens.
+  The palette borrows from hotel interiors rather than generic SaaS: lacquered green millwork
+  (primary), brushed brass hardware (selection & emphasis), and a cool stone ground. Status colours
+  are muted so a grid full of them stays calm.
+*/
+@theme {
+  --font-sans: "Instrument Sans Variable", ui-sans-serif, system-ui, sans-serif;
+
+  --color-ink: #1a2230;
+  --color-ink-2: #4a5363;
+  --color-ink-3: #7a8290;
+  --color-ink-4: #a6acb5;
+
+  --color-stone: #f3f4f1;
+  --color-stone-2: #eaece7;
+  --color-paper: #ffffff;
+  --color-line: #dce0da;
+  --color-line-2: #e9ece7;
+
+  --color-lacquer: #1f4d45;
+  --color-lacquer-700: #173b35;
+  --color-lacquer-600: #2a6358;
+  --color-lacquer-100: #d6e5e1;
+  --color-lacquer-50: #ebf2f0;
+
+  --color-brass: #a07c33;
+  --color-brass-400: #d9b46a;
+  --color-brass-100: #f1e4c4;
+  --color-brass-50: #f8f2e3;
+
+  --color-ok: #2f7d5b;
+  --color-ok-50: #e7f3ec;
+  --color-warn: #a5690f;
+  --color-warn-50: #fbf1de;
+  --color-risk: #c2410c;
+  --color-risk-50: #fdeee5;
+  --color-crit: #b42318;
+  --color-crit-50: #fdecea;
+  --color-info: #2f5f98;
+  --color-info-50: #e9f0f9;
+
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+
+  --shadow-pop: 0 1px 2px rgb(26 34 48 / 0.06), 0 8px 24px -8px rgb(26 34 48 / 0.18);
+  --shadow-sheet: -16px 0 40px -12px rgb(26 34 48 / 0.22);
+}
+
+@layer base {
+  html {
+    color: var(--color-ink);
+    background: var(--color-stone);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.45;
+    -webkit-font-smoothing: antialiased;
+    font-feature-settings: "ss01", "cv11";
+  }
+  body {
+    min-height: 100dvh;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-brass);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+  ::selection {
+    background: var(--color-brass-100);
+  }
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+@utility num {
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "tnum";
+}
+
+@layer components {
+  /* The record "title block": modelled on the title block of an architectural drawing sheet —
+     a ruled grid of the facts that identify the record. Used once per record page. */
+  .title-block {
+    display: grid;
+    grid-template-columns: minmax(0, 2.2fr) repeat(var(--tb-cols, 4), minmax(0, 1fr));
+    border: 1px solid var(--color-ink);
+    background: var(--color-paper);
+  }
+  .title-block > * {
+    border-left: 1px solid var(--color-line);
+    padding: 10px 14px;
+    min-width: 0;
+  }
+  .title-block > :first-child {
+    border-left: 0;
+  }
+  .title-block .tb-label {
+    font-size: 11px;
+    color: var(--color-ink-3);
+    letter-spacing: 0.01em;
+  }
+  .title-block .tb-value {
+    font-weight: 560;
+    margin-top: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  @media (max-width: 900px) {
+    .title-block {
+      grid-template-columns: 1fr 1fr;
+    }
+    .title-block > * {
+      border-left: 0;
+      border-top: 1px solid var(--color-line);
+    }
+    .title-block > :first-child {
+      grid-column: 1 / -1;
+      border-top: 0;
+    }
+  }
+
+  .grid-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+  }
+  .grid-table th {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background: var(--color-stone);
+    color: var(--color-ink-2);
+    font-weight: 560;
+    font-size: 12px;
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-line);
+    white-space: nowrap;
+  }
+  .grid-table td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--color-line-2);
+    vertical-align: middle;
+  }
+  .grid-table tbody tr:hover td {
+    background: #fafbf9;
+  }
+  .grid-table tbody tr[data-selected="true"] td {
+    background: var(--color-brass-50);
+  }
+  .grid-table .right {
+    text-align: right;
+  }
+}
