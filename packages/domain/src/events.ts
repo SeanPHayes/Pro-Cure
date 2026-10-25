@@ -110,6 +110,24 @@ export const EVENTS = {
     revision: z.number().int(),
     total: z.number(),
   }),
+  /** A PO was cancelled; quoting can release its quote lines for re-ordering. */
+  'orders.po.cancelled': z.object({
+    poId: id,
+    projectId: id,
+    vendorId: id,
+    number: z.string(),
+    quoteId: nid,
+    quoteLineIds: z.array(z.uuid()).default([]),
+    reason: z.string().nullable(),
+  }),
+  /** A vendor acknowledged a PO in the portal. */
+  'orders.po.acknowledged': z.object({
+    poId: id,
+    projectId: id,
+    vendorId: id,
+    number: z.string(),
+    estimatedShipDate: z.string().nullable(),
+  }),
   'orders.shipment.ship_date_changed': z.object({
     shipmentId: id,
     poId: id,
