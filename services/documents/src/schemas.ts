@@ -5,6 +5,7 @@ export const DocumentKind = z.enum([
   ...SpecDocumentKind.options,
   'report',
   'photo',
+  'email',
   'email_attachment',
   'invoice',
   'contract',
