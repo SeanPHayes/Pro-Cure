@@ -157,7 +157,33 @@ export const EVENTS = {
   }),
   'finance.payment.received': z.object({ invoiceId: id, projectId: id, amount: z.number() }),
 
+  // catalog
+  'catalog.brand_standard.submitted': z.object({
+    standardId: id,
+    brandId: id,
+    name: z.string(),
+    version: z.string(),
+    itemCount: z.number().int(),
+  }),
+  'catalog.brand_standard.published': z.object({
+    standardId: id,
+    brandId: id,
+    name: z.string(),
+    version: z.string(),
+    itemCount: z.number().int(),
+    contributedByTenantId: nid,
+    supersededIds: z.array(z.uuid()).default([]),
+  }),
+  'catalog.vendor.created': z.object({ vendorId: id, name: z.string(), orgId: nid }),
+
   // documents
+  'documents.report.rendered': z.object({
+    documentId: id,
+    template: z.string(),
+    entityType: z.string().nullable(),
+    entityId: nid,
+    pageCount: z.number().int(),
+  }),
   'documents.document.uploaded': z.object({
     documentId: id,
     entityType: z.string().nullable(),
@@ -179,6 +205,13 @@ export const EVENTS = {
 
   // ai
   'ai.job.completed': z.object({ jobId: id, kind: z.string(), status: z.string() }),
+  'ai.job.applied': z.object({
+    jobId: id,
+    kind: z.string(),
+    entityType: z.string().nullable(),
+    entityId: nid,
+    appliedBy: z.string().nullable(),
+  }),
 
   // commands carried on the bus (fire-and-forget)
   'cmd.notify': z.object({
