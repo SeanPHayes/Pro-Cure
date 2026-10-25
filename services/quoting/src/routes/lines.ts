@@ -164,6 +164,7 @@ export async function applyLinePatch(tx: Tx, q: QuoteRow, l: LineRow, b: LinePat
       if (!selected) throw unprocessable(`Line ${l.code} is not the selected option`);
       if (l.unitCost === null || l.unitPrice === null)
         throw unprocessable(`Line ${l.code} needs a cost and a price before ordering`);
+      if (!(quantity > 0)) throw unprocessable(`Line ${l.code} has no quantity to order`);
     } else if (l.poId) throw conflict(`Line ${l.code} is already ordered`);
     sets.readyToOrder = b.readyToOrder;
   }
