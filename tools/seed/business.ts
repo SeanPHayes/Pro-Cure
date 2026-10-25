@@ -110,5 +110,11 @@ async function hydrate(ctx: Ctx) {
     };
     ctx.out.projects = {};
     for (const p of projects.items ?? projects) if (keyOf[p.name]) ctx.out.projects[keyOf[p.name]!] = p;
+    const quotes = await call<any>(m, 'quoting', 'GET', '/quotes?limit=100').catch(() => null);
+    ctx.out.quotes = {};
+    for (const [key, p] of Object.entries<any>(ctx.out.projects)) {
+      const q = (quotes?.items ?? []).find((x: any) => x.projectId === p.id && !x.isTemplate);
+      if (q) ctx.out.quotes[key] = { quote: q };
+    }
   }
 }

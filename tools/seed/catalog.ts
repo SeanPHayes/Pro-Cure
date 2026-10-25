@@ -250,6 +250,7 @@ const GUESTROOM: Item[] = [
     name: 'Framed art over headboard, regional photography',
     dimensions: '40"W x 30"H',
     quantityBasis: '1 per room',
+    vendors: ['galleryrow'],
   },
 ];
 
@@ -321,6 +322,7 @@ const PUBLIC: Item[] = [
     category: 'other',
     name: 'Fitness mirror wall',
     dimensions: 'Field measure',
+    vendors: ['lumen'],
   },
   {
     code: 'PC-01',

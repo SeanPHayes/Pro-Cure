@@ -1,5 +1,6 @@
 import { join } from 'node:path';
 import { type Role, SERVICES, type ServiceName } from '@procure/domain';
+
 import {
   type App,
   buildService,
@@ -26,14 +27,14 @@ async function load(name: ServiceName): Promise<App> {
   const def = mod[`${name}Service`];
   const app = await buildService(def, rootLogger(`seed:${name}`));
   apps.set(name, app);
-  // Services call each other over HTTP (callService). Listen on the real port so those calls work
-  // even when the dev stack isn't running; if the port is taken, the running service answers.
-  try {
-    await app.listen({ port: SERVICES[name].port, host: '127.0.0.1' });
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'EADDRINUSE') throw err;
-  }
   subs.set(name, def.subscriptions ?? []);
+  // Services call each other over HTTP (callService). Listen on a free port and point the service URL
+  // at this in-process instance, so seeding is self-contained and never talks to a running dev stack
+  // (which may be connected to a different database).
+  await app.listen({ port: 0, host: '127.0.0.1' });
+  const addr = app.server.address();
+  if (addr && typeof addr === 'object')
+    process.env[`SERVICE_URL_${name.toUpperCase()}`] = `http://127.0.0.1:${addr.port}`;
   return app;
 }
 

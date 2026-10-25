@@ -191,6 +191,24 @@ export const VENDORS = [
     preferred: true,
     rating: 4.1,
   },
+  {
+    key: 'galleryrow',
+    name: 'Gallery Row Art Consultants',
+    website: 'https://galleryrowart.example',
+    domain: 'galleryrowart.example',
+    categories: ['artwork'],
+    hq: { city: 'Charleston', region: 'SC', country: 'US' },
+    origin: 'domestic',
+    leadTimeWeeks: 8,
+    depositPct: 50,
+    paymentTerms: '50% deposit, balance on delivery',
+    freightTerms: 'Prepaid & add',
+    shipMethod: 'White glove',
+    contact: { name: 'Maren Holt', email: 'maren@galleryrowart.example', phone: '(843) 555-0147' },
+    portalUser: null,
+    preferred: true,
+    rating: 4.7,
+  },
 ] as const;
 
 export const CLIENTS = [

@@ -14,7 +14,7 @@ export async function runMigrations(log = console.log) {
   log('Applying migrations…');
   // PROCURE_MIGRATE_SCOPES=platform,identity,projects limits which scopes run (useful mid-development).
   const only = process.env.PROCURE_MIGRATE_SCOPES?.split(',').filter(Boolean);
-  const scopes = migrationScopes().filter((s) => !only || only.includes(s.scope));
+  const scopes = migrationScopes().filter((s) => !only?.length || only.includes(s.scope));
   const n = await migrate(ownerSql(), scopes, log);
   log(n ? `Applied ${n} migration(s).` : 'Database is up to date.');
 }

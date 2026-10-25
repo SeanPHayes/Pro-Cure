@@ -94,7 +94,7 @@ export async function poThread(p: Principal, poId: string): Promise<string | nul
       select number, vendor_name, vendor_org_id from orders.purchase_orders where id = ${poId}`;
     return r;
   });
-  if (!po) return null;
+  if (!po?.vendorOrgId) return null;
   return clients.openThread({
     tenantId: p.tenantId,
     entityType: 'purchase_order',
@@ -653,7 +653,8 @@ export async function purchaseOrderRoutes(app: App) {
           filename: `${cur.number}.pdf`,
           entityType: 'purchase_order',
           entityId: cur.id,
-          visibility: 'vendor',
+          // Vendors without portal access get the PDF by email only.
+          visibility: cur.vendorOrgId ? 'vendor' : 'internal',
           vendorOrgId: cur.vendorOrgId,
         });
         await tx`insert into orders.po_revisions (tenant_id, po_id, revision, changes, document_id, message, issued_by_name)
@@ -730,7 +731,8 @@ export async function purchaseOrderRoutes(app: App) {
           filename: `${cur.number}-R${revision}.pdf`,
           entityType: 'purchase_order',
           entityId: cur.id,
-          visibility: 'vendor',
+          // Vendors without portal access get the PDF by email only.
+          visibility: cur.vendorOrgId ? 'vendor' : 'internal',
           vendorOrgId: cur.vendorOrgId,
         });
         await tx`insert into orders.po_revisions (tenant_id, po_id, revision, changes, document_id, message, issued_by_name)
