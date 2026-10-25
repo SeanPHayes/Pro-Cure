@@ -14,7 +14,7 @@ export interface Ctx {
   out: Record<string, any>;
 }
 
-export async function seedBusiness(ids: SeedIds) {
+export async function seedBusiness(ids: SeedIds, only?: string[]) {
   const staff = {} as Ctx['staff'];
   for (const s of STAFF)
     staff[s.key] = await actor(ids, {
@@ -51,6 +51,7 @@ export async function seedBusiness(ids: SeedIds) {
   // catalog must run first (vendors/brands referenced by everything else)
   stages.sort((a, b) => (a[0] === 'catalog' ? -1 : b[0] === 'catalog' ? 1 : 0));
   for (const [name, fn] of stages) {
+    if (only?.length && !only.includes(name)) continue;
     console.log(`Seeding ${name}…`);
     await fn(ctx);
     await drainEvents();

@@ -7,6 +7,8 @@ export interface SeedIds {
   vendorOrgs: Record<string, string>;
   clientOrgs: Record<string, string>;
   clientUsers: Record<string, string>;
+  platformOrgId: string;
+  curatorId: string;
 }
 
 /** Organizations, people and memberships go straight into the identity schema (there is no public
@@ -59,6 +61,14 @@ export async function seedIdentity(): Promise<SeedIds> {
       await tx`insert into identity.org_relationships (tenant_id, org_id, kind) values (${tenantId}, ${id}, 'client') on conflict do nothing`;
       for (const u of c.users) clientUsers[u.email] = await user(id, u);
     }
-    return { tenantId, users, vendorOrgs, clientOrgs, clientUsers };
+    // Pro-Cure operators curate the shared catalog (brand standards published to every firm).
+    const platformOrgId = await org('platform', 'Pro-Cure Network', 'pro-cure-network');
+    const curatorId = await user(platformOrgId, {
+      name: 'Catalog Curation',
+      email: 'curation@pro-cure.example',
+      title: 'Brand standards curator',
+      roles: ['catalog_curator'],
+    });
+    return { tenantId, users, vendorOrgs, clientOrgs, clientUsers, platformOrgId, curatorId };
   });
 }
