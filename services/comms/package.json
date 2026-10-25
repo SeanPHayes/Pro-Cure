@@ -1,0 +1,24 @@
+{
+  "name": "@procure/comms",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --clear-screen=false src/main.ts",
+    "start": "node dist/main.js",
+    "build": "esbuild src/main.ts --bundle --platform=node --format=esm --target=node22 --outdir=dist --packages=external",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@procure/domain": "workspace:*",
+    "@procure/platform": "workspace:*",
+    "mailparser": "^3.7.4",
+    "@aws-sdk/client-sesv2": "^3.1156.0",
+    "html-to-text": "^9.0.5"
+  },
+  "devDependencies": {
+    "@types/mailparser": "^3.4.6",
+    "@types/html-to-text": "^9.0.4"
+  }
+}

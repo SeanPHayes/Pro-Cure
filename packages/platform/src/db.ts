@@ -95,6 +95,13 @@ export const SYSTEM_CONTEXT: DbContext = { tenantId: null, userId: null, orgId: 
 export const withSystem = <T>(fn: (tx: Tx) => Promise<T>, tenantId: string | null = null): Promise<T> =>
   withContext({ ...SYSTEM_CONTEXT, tenantId }, fn);
 
+/**
+ * Work on behalf of a tenant without a user (event handlers, internal endpoints called by other
+ * services). RLS still scopes every query to `tenantId`.
+ */
+export const withTenant = <T>(tenantId: string, fn: (tx: Tx) => Promise<T>): Promise<T> =>
+  withContext({ tenantId, userId: null, orgId: null, actor: 'service', userName: 'Pro-Cure' }, fn);
+
 /** Seeding / tests / admin tooling: system context on the schema-owner connection. */
 export const withOwner = <T>(fn: (tx: Tx) => Promise<T>): Promise<T> =>
   withContext(SYSTEM_CONTEXT, fn, ownerSql());

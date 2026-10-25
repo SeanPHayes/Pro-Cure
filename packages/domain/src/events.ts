@@ -99,6 +99,8 @@ export const EVENTS = {
     vendorId: id,
     number: z.string(),
     total: z.number(),
+    quoteId: nid,
+    quoteLineIds: z.array(z.uuid()).default([]),
   }),
   'orders.po.issued': z.object({
     poId: id,
@@ -146,6 +148,13 @@ export const EVENTS = {
 
   // finance
   'finance.invoice.issued': z.object({ invoiceId: id, projectId: id, number: z.string(), total: z.number() }),
+  'finance.vendor_bill.paid': z.object({
+    billId: id,
+    poId: nid,
+    vendorId: id,
+    kind: z.string(),
+    amount: z.number(),
+  }),
   'finance.payment.received': z.object({ invoiceId: id, projectId: id, amount: z.number() }),
 
   // documents
