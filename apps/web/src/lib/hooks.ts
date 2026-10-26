@@ -49,9 +49,10 @@ export function useDebounced<T>(value: T, ms = 250): T {
 export function useSearchParamInput(value: string, onCommit: (v: string) => void) {
   const [text, setText] = useState(value);
   const debounced = useDebounced(text);
+  // biome-ignore lint/correctness/useExhaustiveDependencies: commit only when the debounced text changes
   useEffect(() => {
     if (debounced !== value) onCommit(debounced);
-  }, [debounced]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [debounced]);
   useEffect(() => setText(value), [value]);
   return [text, setText] as const;
 }

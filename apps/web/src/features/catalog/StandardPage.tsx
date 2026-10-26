@@ -1,9 +1,9 @@
-import { ActivityFeed } from '@/components/shared/ActivityFeed';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { FileText, FileUp, ListPlus, Pencil, Plus, Send, Share2, Trash2, X } from 'lucide-react';
 import { type ReactNode, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router';
 import { toast } from 'sonner';
+import { ActivityFeed } from '@/components/shared/ActivityFeed';
 import {
   Badge,
   Button,

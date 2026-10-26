@@ -9,7 +9,8 @@ export async function searchRoutes(app: App) {
     {
       schema: {
         tags: ['search'],
-        summary: 'Command-palette search across brand-standard items, products and vendors (top 10 each by default; `limit` up to 100)',
+        summary:
+          'Command-palette search across brand-standard items, products and vendors (top 10 each by default; `limit` up to 100)',
         querystring: z.object({
           q: z.string().trim().min(1).max(200),
           limit: z.coerce.number().int().min(1).max(100).default(10),

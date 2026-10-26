@@ -7,8 +7,8 @@ import { Avatar, cx, Menu } from '@/components/ui';
 import { api, type Session } from '@/lib/api';
 import { hasPerm, homeFor, useAuthActions, useSession } from '@/lib/auth';
 import { humanize } from '@/lib/format';
-import { CLIENT_NAV, INTERNAL_NAV, type NavItem, VENDOR_NAV } from './nav';
 import { Notifications } from './Notifications';
+import { CLIENT_NAV, INTERNAL_NAV, type NavItem, VENDOR_NAV } from './nav';
 
 /** Route guard: renders children only for the right kind of actor; otherwise sends them home. */
 export function RequireActor({
@@ -133,6 +133,7 @@ function CommandPalette({ open, onClose }: { open: boolean; onClose: () => void 
     nav(to);
   };
   return (
+    // biome-ignore lint/a11y/noStaticElementInteractions: backdrop click-to-dismiss; Escape closes for keyboard users
     <div
       className="fixed inset-0 z-50 flex items-start justify-center bg-ink/25 px-4 pt-[12vh]"
       onMouseDown={onClose}
@@ -243,6 +244,7 @@ function Shell({
   const s = useSession()!;
   const [mobileNav, setMobileNav] = useState(false);
   const loc = useLocation();
+  // biome-ignore lint/correctness/useExhaustiveDependencies: close the drawer whenever the route changes
   useEffect(() => setMobileNav(false), [loc.pathname]);
   return (
     <div className="flex min-h-dvh">
@@ -266,7 +268,12 @@ function Shell({
         <nav className="flex-1 overflow-y-auto px-2 pb-4">{rail(() => setMobileNav(false))}</nav>
       </aside>
       {mobileNav && (
-        <div className="fixed inset-0 z-30 bg-ink/30 lg:hidden" onClick={() => setMobileNav(false)} />
+        <button
+          type="button"
+          aria-label="Close navigation"
+          className="fixed inset-0 z-30 bg-ink/30 lg:hidden"
+          onClick={() => setMobileNav(false)}
+        />
       )}
       <div className="flex min-w-0 flex-1 flex-col">
         <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line bg-paper/95 px-4 backdrop-blur">

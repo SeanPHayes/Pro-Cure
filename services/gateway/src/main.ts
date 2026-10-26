@@ -1,5 +1,5 @@
 import proxy from '@fastify/http-proxy';
-import { GATEWAY_PORT, SERVICES, SERVICE_NAMES } from '@procure/domain';
+import { GATEWAY_PORT, SERVICE_NAMES, SERVICES } from '@procure/domain';
 import { rootLogger, serviceUrl } from '@procure/platform';
 import Fastify from 'fastify';
 

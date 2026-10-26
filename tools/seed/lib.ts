@@ -6,8 +6,8 @@ import {
   buildService,
   consume,
   rootLogger,
-  sql,
   type Subscription,
+  sql,
   withSystem,
 } from '@procure/platform';
 import { tokenFor } from '@procure/platform/testing';

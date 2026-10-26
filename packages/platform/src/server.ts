@@ -24,8 +24,8 @@ import {
   emit,
   internalSecret,
   registerSubscriptions,
-  startOutboxRelay,
   type Subscription,
+  startOutboxRelay,
 } from './events.js';
 import { type Job, startJobs } from './jobs.js';
 import { startSqsConsumer } from './sqs.js';

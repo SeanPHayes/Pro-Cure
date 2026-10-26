@@ -217,7 +217,8 @@ describe('brand-spec extraction (a)', () => {
       expect(typeof it.area).toBe('string');
       expect(it.area.length).toBeGreaterThan(0);
       expect(it).not.toHaveProperty('sourcePage');
-      for (const v of it.approvedVendors) expect(v.model === undefined || typeof v.model === 'string').toBe(true);
+      for (const v of it.approvedVendors)
+        expect(v.model === undefined || typeof v.model === 'string').toBe(true);
     }
     expect(sent.some((it) => it.attributes?.sourcePage)).toBe(true);
   });

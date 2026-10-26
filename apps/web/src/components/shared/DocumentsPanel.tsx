@@ -117,6 +117,7 @@ export function DocumentsPanel({
   return (
     <div>
       {!readOnly && (
+        // biome-ignore lint/a11y/noStaticElementInteractions: drop zone; the file picker button inside is the keyboard path
         <div
           onDragOver={(e) => {
             e.preventDefault();

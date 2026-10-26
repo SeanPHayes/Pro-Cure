@@ -1,7 +1,17 @@
 {
   "$schema": "https://biomejs.dev/schemas/2.6.3/schema.json",
   "files": {
-    "includes": ["**", "!**/node_modules", "!**/dist", "!**/cdk.out", "!**/.local-storage", "!**/*.gen.ts"]
+    "includes": [
+      "**",
+      "!**/node_modules",
+      "!**/dist",
+      "!**/cdk.out",
+      "!**/.local-storage",
+      "!**/*.gen.ts",
+      "!**/*.md",
+      "!**/*.yaml",
+      "!**/*.yml"
+    ]
   },
   "formatter": {
     "enabled": true,
@@ -10,15 +20,31 @@
     "lineWidth": 110
   },
   "javascript": {
-    "formatter": { "quoteStyle": "single", "semicolons": "always", "trailingCommas": "all" }
+    "formatter": {
+      "quoteStyle": "single",
+      "semicolons": "always",
+      "trailingCommas": "all"
+    }
   },
   "linter": {
     "enabled": true,
     "rules": {
       "preset": "recommended",
-      "style": { "noNonNullAssertion": "off", "useTemplate": "off" },
-      "suspicious": { "noExplicitAny": "warn" },
-      "complexity": { "noForEach": "off" }
+      "style": {
+        "noNonNullAssertion": "off",
+        "useTemplate": "off"
+      },
+      "suspicious": {
+        "noExplicitAny": "warn"
+      },
+      "complexity": {
+        "noForEach": "off"
+      }
+    }
+  },
+  "css": {
+    "parser": {
+      "tailwindDirectives": true
     }
   }
 }

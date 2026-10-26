@@ -58,9 +58,9 @@ const run = (name, cwd, cmd, cmdArgs, i) => {
 };
 
 const tsx = join(root, 'node_modules/.bin/tsx');
-services.forEach((s, i) =>
-  run(s, join(root, 'services', s), tsx, ['watch', '--clear-screen=false', 'src/main.ts'], i),
-);
+services.forEach((s, i) => {
+  run(s, join(root, 'services', s), tsx, ['watch', '--clear-screen=false', 'src/main.ts'], i);
+});
 run(
   'gateway',
   join(root, 'services/gateway'),

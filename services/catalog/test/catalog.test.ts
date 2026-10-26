@@ -217,7 +217,11 @@ describe('brands & brand standards', () => {
     const vname2 = `Riverside Millwork ${sfx}`;
     const v = await post('/vendors', a.adminToken, { name: vname2 });
     expect(v.statusCode).toBe(201);
-    const draft = await post('/brand-standards', a.adminToken, { brandId, name: 'Linking test', version: '1' });
+    const draft = await post('/brand-standards', a.adminToken, {
+      brandId,
+      name: 'Linking test',
+      version: '1',
+    });
     const res = await app.inject({
       method: 'POST',
       url: `/internal/brand-standards/${draft.json().id}/items?tenantId=${a.tenantId}`,

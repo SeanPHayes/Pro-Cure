@@ -5,13 +5,21 @@ import { AppError, callService as rawCallService } from '@procure/platform';
  * callService, but a connection failure ("fetch failed", timeouts) names the service that is down, so the
  * job error a reviewer sees says "orders is unavailable" instead of a bare network message.
  */
-const callService = async <T>(service: ServiceName, path: string, opts?: Parameters<typeof rawCallService>[2]) => {
+const callService = async <T>(
+  service: ServiceName,
+  path: string,
+  opts?: Parameters<typeof rawCallService>[2],
+) => {
   try {
     return await rawCallService<T>(service, path, opts);
   } catch (err) {
     if (err instanceof AppError) throw err;
     const cause = (err as { cause?: { code?: string } }).cause?.code ?? (err as Error).name;
-    throw new AppError(503, 'upstream_unavailable', `${service} is unavailable (${cause || (err as Error).message})`);
+    throw new AppError(
+      503,
+      'upstream_unavailable',
+      `${service} is unavailable (${cause || (err as Error).message})`,
+    );
   }
 };
 

@@ -480,7 +480,10 @@ describe('AI routing (internal)', () => {
       headers: auth(a.adminToken),
     });
     expect(u.json().suggestions[1].error ?? null).toBeNull();
-    expect(clients.setShipDate).toHaveBeenCalledWith(a.tenantId, expect.objectContaining({ poId, newShipDate: '2026-11-18' }));
+    expect(clients.setShipDate).toHaveBeenCalledWith(
+      a.tenantId,
+      expect.objectContaining({ poId, newShipDate: '2026-11-18' }),
+    );
     const t = await app.inject({
       method: 'POST',
       url: `/inbound/${id}/suggestions/0/apply`,

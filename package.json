@@ -14,7 +14,7 @@
     "db:migrate": "tsx tools/migrate.ts",
     "db:seed": "tsx tools/seed/index.ts",
     "db:reset": "node tools/db-create.mjs --drop && tsx tools/migrate.ts && tsx tools/seed/index.ts",
-    "typecheck": "pnpm -r --parallel typecheck",
+    "typecheck": "pnpm -r --workspace-concurrency=3 typecheck",
     "test": "pnpm -r test",
     "lint": "biome check .",
     "format": "biome format --write .",

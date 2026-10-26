@@ -17,7 +17,16 @@ interface Entry {
 }
 
 /** Bookkeeping columns that never mean anything to a reader. */
-const SKIP = new Set(['id', 'tenant_id', 'version', 'search', 'updated_at', 'created_at', 'last_issued_snapshot', 'sort']);
+const SKIP = new Set([
+  'id',
+  'tenant_id',
+  'version',
+  'search',
+  'updated_at',
+  'created_at',
+  'last_issued_snapshot',
+  'sort',
+]);
 /** Foreign keys and actor ids are noise in a human history ("PublishedBy: 26a2…"). */
 const isNoise = (k: string) => SKIP.has(k) || /(_id|_ids|_by|^id)$/.test(k) || k.endsWith('_document_id');
 
@@ -55,7 +64,8 @@ function groupEntries(list: Entry[]): Group[] {
   return out;
 }
 
-const plural = (s: string, n: number) => (n === 1 ? s : `${n} ${s.endsWith('y') ? `${s.slice(0, -1)}ies` : `${s}s`}`);
+const plural = (s: string, n: number) =>
+  n === 1 ? s : `${n} ${s.endsWith('y') ? `${s.slice(0, -1)}ies` : `${s}s`}`;
 
 /** Field-level change history from the platform audit log. */
 export function ActivityFeed({ service, path }: { service: ServiceName; path: string }) {

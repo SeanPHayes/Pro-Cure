@@ -608,7 +608,11 @@ async function routes(app: App) {
     '/internal/orgs/:id',
     {
       config: { internal: true },
-      schema: { hide: true, params: z.object({ id: z.uuid() }), querystring: z.object({ tenantId: z.uuid() }) },
+      schema: {
+        hide: true,
+        params: z.object({ id: z.uuid() }),
+        querystring: z.object({ tenantId: z.uuid() }),
+      },
     },
     async (req) =>
       withSystem(async (tx) => {

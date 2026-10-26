@@ -589,7 +589,13 @@ export function Sheet({
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-ink/25" onClick={onClose} />
+      <button
+        type="button"
+        aria-label="Close"
+        tabIndex={-1}
+        className="absolute inset-0 bg-ink/25"
+        onClick={onClose}
+      />
       <aside
         role="dialog"
         aria-modal="true"
@@ -637,7 +643,13 @@ export function Dialog({
   if (!open) return null;
   return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center p-4">
-      <div className="absolute inset-0 bg-ink/30" onClick={onClose} />
+      <button
+        type="button"
+        aria-label="Close"
+        tabIndex={-1}
+        className="absolute inset-0 bg-ink/30"
+        onClick={onClose}
+      />
       <div
         role="dialog"
         aria-modal="true"
@@ -692,6 +704,7 @@ export function Menu({
         >
           {items.map((it, i) =>
             it === 'divider' ? (
+              // biome-ignore lint/suspicious/noArrayIndexKey: dividers are static and position-only
               <div key={`d${i}`} className="my-1 h-px bg-line-2" />
             ) : (
               <button
