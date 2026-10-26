@@ -613,7 +613,12 @@ describe('vendor portal', () => {
     const keys = keysDeep(body);
     for (const k of [...SELL_KEYS, ...INTERNAL_KEYS, 'vendorId', 'quoteId', 'escalation'])
       expect(keys.has(k), k).toBe(false);
-    expect(body.requirements.map((r: any) => r.kind)).toEqual(['order_acknowledgement']);
+    // Their own acknowledgement plus the submittals they provide for owner approval; never deposits.
+    expect(body.requirements.map((r: any) => r.kind)).toEqual([
+      'order_acknowledgement',
+      'shop_drawing_approval',
+      'finish_sample_approval',
+    ]);
     expect(body.shipTo.city).toBe('Austin');
 
     // Vendor can't use internal routes

@@ -75,8 +75,11 @@ export function ThreadPanel({
       : thread.data.messages.items
     : [];
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: re-run when a message arrives
   useEffect(() => {
-    bottom.current?.scrollIntoView({ block: 'nearest' });
+    // Scroll the message list itself (not the page) to the newest message.
+    const list = bottom.current?.parentElement;
+    if (list) list.scrollTop = list.scrollHeight;
   }, [messages.length]);
 
   const post = useMutation({
@@ -188,11 +191,13 @@ export function ThreadPanel({
           value={body}
           onChange={(e) => setBody(e.target.value)}
           placeholder={
-            visibility === 'vendor'
-              ? 'Message the vendor…'
-              : visibility === 'client'
-                ? 'Message the owner…'
-                : 'Message the team…'
+            s && s.context.actor !== 'internal'
+              ? 'Write a message…'
+              : visibility === 'vendor'
+                ? 'Message the vendor…'
+                : visibility === 'client'
+                  ? 'Message the owner…'
+                  : 'Message the team…'
           }
           rows={3}
           onKeyDown={(e) => {

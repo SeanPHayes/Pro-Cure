@@ -131,8 +131,9 @@ interface PoRow {
   escalationLevel?: string;
   total?: number;
   issuedAt?: string | null;
-  requiredDeliveryDate?: string | null;
-  expectedShipDate?: string | null;
+  requestedDeliveryDate?: string | null;
+  releaseByDate?: string | null;
+  escalationReasons?: string[];
 }
 
 export function ProjectOrders({ projectId }: { projectId: string }) {
@@ -167,8 +168,8 @@ export function ProjectOrders({ projectId }: { projectId: string }) {
     },
     {
       key: 'delivery',
-      header: 'Required delivery',
-      cell: (r) => <span className="num whitespace-nowrap">{date(r.requiredDeliveryDate)}</span>,
+      header: 'Requested delivery',
+      cell: (r) => <span className="num whitespace-nowrap">{date(r.requestedDeliveryDate)}</span>,
     },
     { key: 'total', header: 'Total', align: 'right', cell: (r) => money(r.total) },
   ];

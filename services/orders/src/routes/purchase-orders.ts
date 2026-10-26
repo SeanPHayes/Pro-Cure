@@ -345,6 +345,11 @@ export async function purchaseOrderRoutes(app: App) {
           conds.push(tx`sh.next_delivery <= current_date + ${q.deliversWithinDays}::int`);
         if (q.hasUnissuedChanges !== undefined)
           conds.push(tx`p.has_unissued_changes = ${q.hasUnissuedChanges}`);
+        if (q.needsAction)
+          conds.push(tx`p.status <> 'draft' and (
+            (coalesce(r.pending, 0) > 0 and p.release_by_date <= current_date + 14)
+            or (p.status = 'issued' and p.acknowledged_at is null)
+            or coalesce(sh.unconfirmed, 0) > 0)`);
         if (q.q) {
           const like = `%${q.q}%`;
           conds.push(
@@ -373,6 +378,7 @@ export async function purchaseOrderRoutes(app: App) {
           select p.*, coalesce(r.pending, 0)::int as pending_requirements, coalesce(r.kinds, '{}') as pending_kinds,
                  coalesce(sh.n, 0)::int as shipment_count, sh.next_ship, sh.next_delivery,
                  coalesce(sh.tracking_missing, 0)::int as tracking_missing,
+                 coalesce(sh.unconfirmed, 0)::int as unconfirmed,
                  count(*) over ()::int as total_count
           from orders.purchase_orders p
           left join lateral (
@@ -386,7 +392,11 @@ export async function purchaseOrderRoutes(app: App) {
                                 estimated_ship_date + coalesce(p.transit_days, 5),
                                 requested_delivery_date)) filter (where status <> 'delivered') as next_delivery,
                    count(*) filter (where tracking_number is null and estimated_ship_date <= current_date - 2
-                                    and status not in ('shipped', 'in_transit', 'delivered')) as tracking_missing
+                                    and status not in ('shipped', 'in_transit', 'delivered')) as tracking_missing,
+                   count(*) filter (where status not in ('shipped', 'in_transit', 'delivered', 'exception')
+                                    and p.status <> 'draft'
+                                    and (last_confirmed_at is null
+                                         or last_confirmation_requested_at > last_confirmed_at)) as unconfirmed
             from orders.shipments where po_id = p.id) sh on true
           where ${where}
           order by ${order}, p.release_by_date asc nulls last, p.number
@@ -401,6 +411,7 @@ export async function purchaseOrderRoutes(app: App) {
               nextShipDate: r.nextShip ?? null,
               nextDeliveryDate: r.nextDelivery ?? null,
               trackingMissing: r.trackingMissing,
+              unconfirmedShipments: r.unconfirmed,
             },
           })),
           total: rows[0]?.totalCount ?? 0,
@@ -914,7 +925,7 @@ export async function purchaseOrderRoutes(app: App) {
 
 const LABELS: Record<string, string> = {
   requestedDeliveryDate: 'Requested delivery',
-  releaseByDate: 'Release-by date',
+  releaseByDate: 'Order-by date',
   shipTo: 'Ship-to',
   billTo: 'Bill-to',
   contact24h: '24-hour contact',

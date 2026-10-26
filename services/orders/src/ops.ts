@@ -1,4 +1,5 @@
 import { type Tx, unprocessable } from '@procure/platform';
+import { openThread } from './clients.js';
 import {
   type Emit,
   emailDeliveryRecipients,
@@ -205,6 +206,38 @@ export async function openClaim(
   for (const it of c.items)
     await tx`insert into orders.claim_items (tenant_id, claim_id, po_line_id, quantity, note)
              values (${c.tenantId}, ${claim.id}, ${it.poLineId}, ${it.quantity}, ${it.note ?? null})`;
+  // Portal users can only open threads that already exist: create the claim's conversations up front so the
+  // owner who reported it (and the vendor, once it is submitted to them) can message about it.
+  const subject = `Claim ${claim.number}`;
+  await Promise.all([
+    openThread({
+      tenantId: c.tenantId,
+      entityType: 'claim',
+      entityId: claim.id,
+      subject,
+      visibility: 'internal',
+    }),
+    c.clientOrgId
+      ? openThread({
+          tenantId: c.tenantId,
+          entityType: 'claim',
+          entityId: claim.id,
+          subject,
+          visibility: 'client',
+          clientOrgId: c.clientOrgId,
+        })
+      : null,
+    c.vendorOrgId
+      ? openThread({
+          tenantId: c.tenantId,
+          entityType: 'claim',
+          entityId: claim.id,
+          subject,
+          visibility: 'vendor',
+          vendorOrgId: c.vendorOrgId,
+        })
+      : null,
+  ]);
   await em(tx, 'orders.claim.opened', {
     claimId: claim.id,
     projectId: c.projectId,

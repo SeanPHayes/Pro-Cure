@@ -8,6 +8,7 @@ import {
   PoStatus,
   PreOrderKind,
   page,
+  patchOf,
   RequirementStatus,
   ShipmentStatus,
   StorageItemStatus,
@@ -230,6 +231,8 @@ export const PoGridRow = PoHeader.extend({
     nextShipDate: ns,
     nextDeliveryDate: ns,
     trackingMissing: z.number(),
+    /** Open shipments whose ship date the vendor has not confirmed (never, or not since the last request). */
+    unconfirmedShipments: z.number(),
   }),
 });
 
@@ -269,6 +272,11 @@ export const PoListQuery = PageQuery.extend({
   shipsWithinDays: z.coerce.number().int().min(0).max(3650).optional(),
   deliversWithinDays: z.coerce.number().int().min(0).max(3650).optional(),
   hasUnissuedChanges: boolQ.optional(),
+  /**
+   * "Needs action this week": pending requirements with the order-by date within 14 days (or passed),
+   * issued but not acknowledged, or an open shipment whose ship date is unconfirmed.
+   */
+  needsAction: boolQ.optional(),
   includeClosed: boolQ.optional(),
   sort: PoSort,
 });
@@ -313,7 +321,7 @@ export const LineBody = z.object({
   unitCost: z.number().min(0),
   sort: z.number().int().optional(),
 });
-export const LinePatchBody = LineBody.partial();
+export const LinePatchBody = patchOf(LineBody);
 
 export const IssueBody = z.object({ message: z.string().max(5000).optional() }).optional();
 export const CancelBody = z.object({
@@ -504,7 +512,7 @@ export const RecipientInput = z.object({
   phone: ns.optional(),
   poId: z.uuid().nullable().optional(),
 });
-export const RecipientPatch = RecipientInput.partial();
+export const RecipientPatch = patchOf(RecipientInput);
 export const RecipientParams = z.object({ projectId: z.uuid(), id: z.uuid() });
 export const RecipientsQuery = z.object({ poId: z.uuid().optional() });
 export const BulkApplyBody = z.object({
@@ -588,6 +596,9 @@ export const Claim = z.object({
   shipmentId: ns,
   vendorId: ns,
   vendorName: ns,
+  /** Internal response only: the orgs whose portal threads belong to this claim. */
+  vendorOrgId: ns.optional(),
+  clientOrgId: ns.optional(),
   number: s,
   type: ClaimType,
   status: ClaimStatus,
@@ -712,6 +723,12 @@ export const VendorPoSummary = z.object({
   total: z.number(),
   nextShipDate: ns,
   openActions: z.number(),
+  /** City/region of the ship-to address (no street or contact details in the list). */
+  shipToCity: ns.optional(),
+  /** What is needed from the vendor, in priority order. */
+  actions: z
+    .array(z.enum(['acknowledge', 'confirm_ship_date', 'add_tracking', 'submit_documents']))
+    .optional(),
 });
 export const VendorPo = z.object({
   id: s,
