@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "declaration": false,
+    "sourceMap": false,
+    "types": ["node", "aws-lambda"],
+    "typeRoots": ["./node_modules/@types", "../../node_modules/@types"],
+    "paths": {
+      "postgres": ["./node_modules/postgres/types/index.d.ts"],
+      "@aws-sdk/client-secrets-manager": [
+        "./node_modules/@aws-sdk/client-secrets-manager/dist-types/index.d.ts"
+      ],
+      "@aws-sdk/client-s3": ["./node_modules/@aws-sdk/client-s3/dist-types/index.d.ts"]
+    }
+  },
+  "include": ["bin/**/*.ts", "lib/**/*.ts", "config/**/*.ts", "scripts/**/*.ts", "../lambda/**/*.ts"],
+  "exclude": ["cdk.out", "node_modules"]
+}

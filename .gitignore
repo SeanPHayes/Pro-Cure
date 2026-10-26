@@ -14,3 +14,4 @@ cdk.out/
 *.tsbuildinfo
 playwright-report/
 test-results/
+dist-tools/

@@ -1,0 +1,7 @@
+{
+  "//": "Runtime tsconfig for tsx (cdk app, scripts). No `paths`: those exist only so tsc can type the Lambda sources in ../lambda, and tsx would otherwise apply them at runtime.",
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "noEmit": true
+  }
+}

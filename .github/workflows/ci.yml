@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: Lint, typecheck, test, build, synth
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      PG_SUPERUSER_URL: postgres://postgres:postgres@localhost:5432/postgres
+      CI: "true"
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4 # version from package.json "packageManager"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint (biome)
+        run: pnpm exec biome check .
+
+      - name: Typecheck
+        run: pnpm -r typecheck
+
+      - name: Test (Postgres 16)
+        run: pnpm -r test
+
+      - name: Build services (bundle check)
+        run: |
+          for s in identity catalog projects quoting orders finance documents ai comms; do
+            node infra/cdk/scripts/bundle-service.mjs "$s"
+          done
+          node infra/cdk/scripts/bundle-service.mjs tools
+
+      - name: Build web
+        run: pnpm --filter @procure/web build
+
+      - name: Event subscriptions up to date
+        working-directory: infra/cdk
+        run: pnpm run gen:subscriptions -- --check
+
+      - name: CDK synth (all stages)
+        working-directory: infra/cdk
+        run: |
+          for stage in dev staging prod; do
+            npx cdk synth -c stage=$stage -q -o cdk.out/$stage
+          done

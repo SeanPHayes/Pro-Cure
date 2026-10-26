@@ -1,0 +1,26 @@
+# Build context for services/Dockerfile (repo root). Keep it small: sources + manifests only.
+**/node_modules
+**/dist
+dist-tools
+**/cdk.out
+**/coverage
+**/.vite
+**/*.tsbuildinfo
+**/*.log
+.git
+.github
+.local-storage
+.env
+.env.*
+docs
+docker-compose.yml
+
+# The web app and CDK app are not part of service images, but their manifests must stay so the
+# workspace matches pnpm-lock.yaml under --frozen-lockfile.
+apps/web/*
+!apps/web/package.json
+infra/*
+!infra/cdk
+infra/cdk/*
+!infra/cdk/package.json
+!infra/cdk/scripts

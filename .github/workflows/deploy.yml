@@ -1,0 +1,162 @@
+name: Deploy
+
+# push to main → dev. Manual dispatch → any stage (prod/staging gated by GitHub environment reviewers).
+# Rollback: dispatch with `image_tag` = a previous commit SHA (skips image builds; see docs/deployment.md).
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: Stage to deploy
+        type: choice
+        options: [dev, staging, prod]
+        default: dev
+      image_tag:
+        description: Existing image tag to deploy (rollback). Empty = build images for this commit.
+        type: string
+        required: false
+      skip_migrations:
+        description: Skip the migration task (e.g. rolling back to a release with the same schema)
+        type: boolean
+        default: false
+
+permissions:
+  id-token: write # GitHub OIDC → AWS
+  contents: read
+
+concurrency:
+  group: deploy-${{ inputs.stage || 'dev' }}
+  cancel-in-progress: false
+
+env:
+  STAGE: ${{ inputs.stage || 'dev' }}
+  IMAGE_TAG: ${{ inputs.image_tag || github.sha }}
+
+jobs:
+  # ------------------------------------------------------------------------------------------------
+  repositories:
+    name: ECR repositories
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.stage || 'dev' }}
+    outputs:
+      registry: ${{ steps.ecr.outputs.registry }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile --filter @procure/infra-cdk --filter pro-cure
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+      - name: Deploy Ecr stack
+        working-directory: infra/cdk
+        run: >
+          npx cdk deploy "ProCure-${STAGE}-Ecr" --exclusively --require-approval never
+          -c stage=$STAGE -c account=${{ vars.AWS_ACCOUNT_ID }} -c region=${{ vars.AWS_REGION || 'us-east-1' }}
+      - id: ecr
+        run: echo "registry=${{ vars.AWS_ACCOUNT_ID }}.dkr.ecr.${{ vars.AWS_REGION || 'us-east-1' }}.amazonaws.com" >> "$GITHUB_OUTPUT"
+
+  # ------------------------------------------------------------------------------------------------
+  images:
+    name: Image ${{ matrix.service }}
+    needs: repositories
+    if: ${{ !inputs.image_tag }}
+    runs-on: ubuntu-24.04-arm # native ARM64 build (Fargate tasks are ARM64)
+    environment: ${{ inputs.stage || 'dev' }}
+    strategy:
+      fail-fast: true
+      matrix:
+        service: [identity, catalog, projects, quoting, orders, finance, documents, ai, comms, tools]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION || 'us-east-1' }}
+      - uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/Dockerfile
+          platforms: linux/arm64
+          build-args: SERVICE=${{ matrix.service }}
+          push: true
+          provenance: false
+          tags: ${{ needs.repositories.outputs.registry }}/pro-cure-${{ env.STAGE }}/${{ matrix.service }}:${{ env.IMAGE_TAG }}
+          cache-from: type=gha,scope=${{ matrix.service }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.service }}
+
+  # ------------------------------------------------------------------------------------------------
+  deploy:
+    name: Migrate + deploy (${{ inputs.stage || 'dev' }})
+    needs: [repositories, images]
+    if: ${{ always() && needs.repositories.result == 'success' && (needs.images.result == 'success' || needs.images.result == 'skipped') }}
+    runs-on: ubuntu-24.04
+    environment: ${{ inputs.stage || 'dev' }}
+    timeout-minutes: 90
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'us-east-1' }}
+      CDK_CTX: -c stage=${{ inputs.stage || 'dev' }} -c imageTag=${{ inputs.image_tag || github.sha }} -c account=${{ vars.AWS_ACCOUNT_ID }} -c region=${{ vars.AWS_REGION || 'us-east-1' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with: { node-version-file: .nvmrc, cache: pnpm }
+      - run: pnpm install --frozen-lockfile
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+          role-duration-seconds: 5400
+
+      # 1. Data plane + migrate task definition for this image tag (dependencies deploy first).
+      - name: Deploy platform (network, data, events, platform)
+        working-directory: infra/cdk
+        run: npx cdk deploy "ProCure-${STAGE}-Platform" --require-approval never $CDK_CTX
+
+      # 2. Forward-only migrations as procure_owner, before any service runs the new code.
+      - name: Run migrations
+        if: ${{ !inputs.skip_migrations }}
+        run: |
+          out() { aws cloudformation describe-stacks --stack-name "ProCure-${STAGE}-Platform" \
+                    --query "Stacks[0].Outputs[?OutputKey=='$1'].OutputValue" --output text; }
+          CLUSTER=$(out ClusterName); TASKDEF=$(out MigrateTaskDefinitionArn)
+          SUBNETS=$(out MigrateSubnets); SG=$(out MigrateSecurityGroup)
+          TASK=$(aws ecs run-task --cluster "$CLUSTER" --task-definition "$TASKDEF" --launch-type FARGATE \
+            --network-configuration "awsvpcConfiguration={subnets=[$SUBNETS],securityGroups=[$SG],assignPublicIp=DISABLED}" \
+            --started-by "gha-${GITHUB_RUN_ID}" --query 'tasks[0].taskArn' --output text)
+          echo "migrate task: $TASK"
+          aws ecs wait tasks-stopped --cluster "$CLUSTER" --tasks "$TASK"
+          CODE=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" --query 'tasks[0].containers[0].exitCode' --output text)
+          REASON=$(aws ecs describe-tasks --cluster "$CLUSTER" --tasks "$TASK" --query 'tasks[0].stoppedReason' --output text)
+          echo "exit code: $CODE ($REASON)"
+          aws logs tail "/pro-cure/${STAGE}/migrate" --since 30m --format short | tail -100 || true
+          test "$CODE" = "0"
+
+      # 3. Everything else (services roll with circuit-breaker rollback).
+      - name: Deploy all stacks
+        working-directory: infra/cdk
+        run: npx cdk deploy --all --require-approval never $CDK_CTX
+
+      # 4. Web app, built with this stage's Cognito settings.
+      - name: Build and publish web
+        run: |
+          out() { aws cloudformation describe-stacks --stack-name "$1" \
+                    --query "Stacks[0].Outputs[?OutputKey=='$2'].OutputValue" --output text; }
+          export VITE_COGNITO_DOMAIN=$(out "ProCure-${STAGE}-Auth" CognitoDomainUrl)
+          export VITE_COGNITO_CLIENT_ID=$(out "ProCure-${STAGE}-Auth" UserPoolClientId)
+          BUCKET=$(out "ProCure-${STAGE}-Web" WebBucketName)
+          DIST=$(out "ProCure-${STAGE}-Web" DistributionId)
+          pnpm --filter @procure/web build
+          # Hashed assets: long cache, never deleted (open tabs keep working; bucket is versioned). index.html: no cache.
+          aws s3 sync apps/web/dist "s3://$BUCKET" --exclude index.html \
+            --cache-control "public,max-age=31536000,immutable"
+          aws s3 cp apps/web/dist/index.html "s3://$BUCKET/index.html" \
+            --cache-control "no-cache,no-store,must-revalidate" --content-type text/html
+          aws cloudfront create-invalidation --distribution-id "$DIST" --paths "/index.html" "/"
+          echo "### Deployed ${STAGE} @ ${IMAGE_TAG}" >> "$GITHUB_STEP_SUMMARY"
+          echo "Web: $(out "ProCure-${STAGE}-Web" WebUrl)" >> "$GITHUB_STEP_SUMMARY"
