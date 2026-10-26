@@ -12,19 +12,14 @@ import {
   Tabs,
   TitleBlock,
 } from '@/components/ui';
+import { ProjectFinancials } from '@/features/finance/ProjectFinancials';
 import { ApiError } from '@/lib/api';
 import { hasPerm, useSession } from '@/lib/auth';
 import { date, daysFromToday } from '@/lib/format';
-import { ProjectFinancials } from '@/features/finance/ProjectFinancials';
 import { OverviewTab } from './OverviewTab';
 import { ProjectFormSheet } from './ProjectForm';
 import { ScheduleTab } from './ScheduleTab';
-import {
-  GuardedThread,
-  ProjectFiles,
-  ProjectOrders,
-  ProjectQuotes,
-} from './ServicePanels';
+import { GuardedThread, ProjectFiles, ProjectOrders, ProjectQuotes } from './ServicePanels';
 import { projectLead, STAGES, stageIndex, stageLabel, useClientOrgs, useProject } from './shared';
 
 const TABS = [

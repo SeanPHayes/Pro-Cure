@@ -185,7 +185,9 @@ export async function internalRoutes(app: App) {
       const b = req.body;
       if (!b.shipmentId && !b.poId) throw notFound('Shipment');
       return withTenant(tenantId, async (tx) => {
-        const [sh] = await tx<{ id: string; poId: string; projectId: string; estimatedShipDate: string | null }[]>`
+        const [sh] = await tx<
+          { id: string; poId: string; projectId: string; estimatedShipDate: string | null }[]
+        >`
           select id, po_id, project_id, estimated_ship_date from orders.shipments
           where ${b.shipmentId ? tx`id = ${b.shipmentId}` : tx`po_id = ${b.poId!} and status not in ('shipped', 'in_transit', 'delivered')`}
           order by estimated_ship_date nulls last, label limit 1`;

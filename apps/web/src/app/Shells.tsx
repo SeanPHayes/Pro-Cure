@@ -7,8 +7,8 @@ import { Avatar, cx, Menu } from '@/components/ui';
 import { api, type Session } from '@/lib/api';
 import { hasPerm, homeFor, useAuthActions, useSession } from '@/lib/auth';
 import { humanize } from '@/lib/format';
-import { CLIENT_NAV, INTERNAL_NAV, type NavItem, VENDOR_NAV } from './nav';
 import { Notifications } from './Notifications';
+import { CLIENT_NAV, INTERNAL_NAV, type NavItem, VENDOR_NAV } from './nav';
 
 /** Route guard: renders children only for the right kind of actor; otherwise sends them home. */
 export function RequireActor({

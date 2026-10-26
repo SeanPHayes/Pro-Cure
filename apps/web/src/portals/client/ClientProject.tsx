@@ -598,7 +598,14 @@ function PortalPanel<T>({
   const q = useQuery({
     queryKey: ['client', service, path, query],
     queryFn: () => api.get<Page<T> | T[]>(service, path, query),
-    select: (d) => (Array.isArray(d) ? d : (d?.items ?? [])),
+    // Lists arrive as an array, a page ({ items }), or grouped storage ({ locations: [{ name, items }] }).
+    select: (d) =>
+      Array.isArray(d)
+        ? d
+        : (d?.items ??
+          ((d as { locations?: { name: string; items: T[] }[] })?.locations ?? []).flatMap((l) =>
+            l.items.map((i) => ({ ...i, locationName: l.name })),
+          )),
     retry: false,
     meta: { silent: true },
   });
@@ -625,35 +632,47 @@ interface OrderRow {
   id: string;
   number: string;
   vendorName?: string;
-  description?: string;
   status: string;
-  expectedDeliveryDate?: string | null;
-  requiredDeliveryDate?: string | null;
-  deliveredAt?: string | null;
+  requestedDeliveryDate?: string | null;
+  orderedCount?: number;
+  deliveredCount?: number;
+  shipments?: { status: string; estimatedDeliveryDate: string | null; deliveredAt: string | null }[];
 }
 const OrderList = ({ rows }: { rows: OrderRow[] }) => (
   <ul className="divide-y divide-line-2">
-    {rows.map((o) => (
-      <li key={o.id} className="flex items-center gap-3 px-4 py-2.5">
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-[560]">{o.description ?? o.vendorName ?? o.number}</div>
-          <div className="text-[12px] text-ink-3">
-            {o.number}
-            {o.vendorName && o.description ? ` · ${o.vendorName}` : ''}
+    {rows.map((o) => {
+      const open = (o.shipments ?? []).filter((x) => x.status !== 'delivered');
+      const next = open
+        .map((x) => x.estimatedDeliveryDate)
+        .filter(Boolean)
+        .sort()[0];
+      const last = (o.shipments ?? [])
+        .map((x) => x.deliveredAt)
+        .filter(Boolean)
+        .sort()
+        .pop();
+      return (
+        <li key={o.id} className="flex items-center gap-3 px-4 py-2.5">
+          <div className="min-w-0 flex-1">
+            <div className="truncate font-[560]">{o.vendorName ?? o.number}</div>
+            <div className="num text-[12px] text-ink-3">
+              {o.number}
+              {o.orderedCount ? ` · ${o.deliveredCount ?? 0} of ${o.orderedCount} items delivered` : ''}
+            </div>
           </div>
-        </div>
-        <div className="text-right">
-          <StatusBadge status={o.status} />
-          <div className="num mt-0.5 text-[12px] text-ink-3">
-            {o.deliveredAt
-              ? `Delivered ${date(o.deliveredAt)}`
-              : (o.expectedDeliveryDate ?? o.requiredDeliveryDate)
-                ? `Expected ${date(o.expectedDeliveryDate ?? o.requiredDeliveryDate)}`
-                : ''}
+          <div className="text-right">
+            <StatusBadge status={o.status} />
+            <div className="num mt-0.5 text-[12px] text-ink-3">
+              {!open.length && last
+                ? `Delivered ${date(last)}`
+                : (next ?? o.requestedDeliveryDate)
+                  ? `Expected ${date(next ?? o.requestedDeliveryDate)}`
+                  : ''}
+            </div>
           </div>
-        </div>
-      </li>
-    ))}
+        </li>
+      );
+    })}
   </ul>
 );
 
@@ -729,6 +748,7 @@ const InvoiceList = ({ rows }: { rows: InvoiceRow[] }) => (
 
 interface StorageRow {
   id: string;
+  code?: string;
   name?: string;
   description?: string;
   quantity?: number;

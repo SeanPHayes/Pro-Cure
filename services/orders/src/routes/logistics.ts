@@ -1,5 +1,5 @@
 import { page } from '@procure/domain';
-import { type App, notFound, type Tx, unprocessable } from '@procure/platform';
+import { ActivityEntry, type App, listActivity, notFound, type Tx, unprocessable } from '@procure/platform';
 import * as clients from '../clients.js';
 import { emailVendor, getPo, requestEmitter, vendorPortalLink } from '../core.js';
 import { type ClaimStatus, canTransitionClaim } from '../domain/claims.js';
@@ -542,6 +542,25 @@ export async function logisticsRoutes(app: App) {
     },
   );
 
+  app.get(
+    '/claims/:id/activity',
+    {
+      schema: {
+        tags: ['claims'],
+        summary: 'Field-level activity for a claim',
+        params: IdParams,
+        response: { 200: z.array(ActivityEntry) },
+      },
+    },
+    async (req) => {
+      req.principal.require('orders:read');
+      return req.tx(async (tx) => {
+        await loadClaim(tx, req.params.id);
+        return listActivity(tx, 'claim', req.params.id, { limit: 200 });
+      });
+    },
+  );
+
   app.post(
     '/claims/:id/report',
     {
@@ -661,7 +680,7 @@ export async function logisticsRoutes(app: App) {
           events.push({
             date: p.releaseByDate,
             kind: 'release_by' as const,
-            title: `Release-by ${p.number}${p.hasPending ? ' (requirements pending)' : ''}`,
+            title: `Order-by ${p.number}${p.hasPending ? ' (requirements pending)' : ''}`,
             poId: p.id,
             poNumber: p.number,
             shipmentId: null,

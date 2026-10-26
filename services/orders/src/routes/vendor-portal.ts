@@ -64,9 +64,9 @@ async function vendorPoDetail(tx: Tx, id: string) {
   const [lines, shipments, requirements, revisions] = await Promise.all([
     loadLines(tx, id),
     loadShipments(tx, [id]),
-    tx<
-      any[]
-    >`select * from orders.pre_order_requirements where po_id = ${id} and party = 'vendor' order by sort`,
+    tx<any[]>`select * from orders.pre_order_requirements where po_id = ${id}
+        and (party = 'vendor' or (party = 'client' and kind in ('shop_drawing_approval', 'finish_sample_approval', 'cfa', 'other')))
+        order by sort`,
     tx<any[]>`select revision, changes, document_id, issued_at from orders.po_revisions where po_id = ${id}
               order by revision desc`,
   ]);
@@ -110,10 +110,35 @@ export async function vendorPortalRoutes(app: App) {
                   and s.status not in ('shipped', 'in_transit', 'delivered')
                   and s.last_confirmation_requested_at is not null
                   and (s.last_confirmed_at is null or s.last_confirmed_at < s.last_confirmation_requested_at)))::int as open_actions,
+            (p.acknowledged_at is null and p.status = 'issued') as needs_ack,
+            exists (select 1 from orders.shipments s where s.po_id = p.id
+                    and s.status not in ('shipped', 'in_transit', 'delivered')
+                    and s.last_confirmation_requested_at is not null
+                    and (s.last_confirmed_at is null or s.last_confirmed_at < s.last_confirmation_requested_at)) as needs_confirm,
+            exists (select 1 from orders.shipments s where s.po_id = p.id and s.tracking_number is null
+                    and s.status not in ('shipped', 'in_transit', 'delivered')
+                    and s.estimated_ship_date <= current_date) as needs_tracking,
+            exists (select 1 from orders.pre_order_requirements r where r.po_id = p.id and r.party <> 'internal'
+                    and r.kind not in ('order_acknowledgement', 'deposit')
+                    and r.status in ('pending', 'rejected') and r.document_id is null) as needs_docs,
             count(*) over ()::int as total_count
           from orders.purchase_orders p where ${where}
           order by open_actions desc, p.issued_at desc nulls last limit ${q.limit} offset ${q.offset}`;
-        return { items: rows, total: rows[0]?.totalCount ?? 0, limit: q.limit, offset: q.offset };
+        return {
+          items: rows.map((r) => ({
+            ...r,
+            shipToCity: [r.shipTo?.city, r.shipTo?.region].filter(Boolean).join(', ') || null,
+            actions: [
+              r.needsAck && 'acknowledge',
+              r.needsConfirm && 'confirm_ship_date',
+              r.needsTracking && 'add_tracking',
+              r.needsDocs && 'submit_documents',
+            ].filter(Boolean),
+          })),
+          total: rows[0]?.totalCount ?? 0,
+          limit: q.limit,
+          offset: q.offset,
+        };
       });
     },
   );

@@ -63,21 +63,21 @@ export function poFindings(po: PoFacts, today: string): Finding[] {
     return [
       {
         level: 'critical',
-        reason: `Release-by date ${po.releaseByDate} passed ${plural(-left, 'day')} ago with pending: ${what}`,
+        reason: `Order-by date ${po.releaseByDate} passed ${plural(-left, 'day')} ago with pending: ${what}`,
       },
     ];
   if (left <= 7)
     return [
       {
         level: 'at_risk',
-        reason: `Release-by date ${po.releaseByDate} in ${plural(left, 'day')}; pending: ${what}`,
+        reason: `Order-by date ${po.releaseByDate} in ${plural(left, 'day')}; pending: ${what}`,
       },
     ];
   if (left <= 21)
     return [
       {
         level: 'watch',
-        reason: `Release-by date ${po.releaseByDate} in ${plural(left, 'day')}; pending: ${what}`,
+        reason: `Order-by date ${po.releaseByDate} in ${plural(left, 'day')}; pending: ${what}`,
       },
     ];
   return [];
