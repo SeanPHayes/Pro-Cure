@@ -96,3 +96,20 @@ export const CLIENT_NAV: NavItem[] = [
   { to: '/portal/claims', label: 'Claims', icon: ShieldAlert },
   { to: '/portal/invoices', label: 'Invoices', icon: Landmark },
 ];
+
+/** Routes that aren't nav items but share a nav item's permission. */
+const EXTRA_ROUTE_PERMS: [string, string][] = [['/app/invoices', 'finance:read']];
+
+/** Permission needed to open an internal route (direct links included), or null. */
+export function requiredPerm(pathname: string): string | null {
+  const rules: [string, string][] = [
+    ...INTERNAL_NAV.flatMap((g) =>
+      g.items.filter((i) => i.perm && !i.end).map((i) => [i.to, i.perm!] as [string, string]),
+    ),
+    ...EXTRA_ROUTE_PERMS,
+  ];
+  const hit = rules
+    .filter(([to]) => pathname === to || pathname.startsWith(`${to}/`))
+    .sort((a, b) => b[0].length - a[0].length)[0];
+  return hit?.[1] ?? null;
+}

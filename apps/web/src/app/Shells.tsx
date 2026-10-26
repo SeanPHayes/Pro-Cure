@@ -8,7 +8,7 @@ import { api, type Session } from '@/lib/api';
 import { hasPerm, homeFor, useAuthActions, useSession } from '@/lib/auth';
 import { humanize } from '@/lib/format';
 import { Notifications } from './Notifications';
-import { CLIENT_NAV, INTERNAL_NAV, type NavItem, VENDOR_NAV } from './nav';
+import { CLIENT_NAV, INTERNAL_NAV, type NavItem, requiredPerm, VENDOR_NAV } from './nav';
 
 /** Route guard: renders children only for the right kind of actor; otherwise sends them home. */
 export function RequireActor({
@@ -290,11 +290,28 @@ function Shell({
           <UserMenu s={s} />
         </header>
         <main className="min-w-0 flex-1">
-          <Outlet />
+          <PermissionGate />
         </main>
       </div>
     </div>
   );
+}
+
+/** Direct links to a page the user's role can't use get a clear message instead of a half-empty page. */
+function PermissionGate() {
+  const s = useSession()!;
+  const { pathname } = useLocation();
+  const perm = requiredPerm(pathname);
+  if (perm && !hasPerm(s, perm))
+    return (
+      <div className="mx-auto max-w-[560px] px-6 py-24">
+        <h1 className="text-[22px] font-[640]">You don't have access to this page</h1>
+        <p className="mt-2 text-ink-2">
+          Your role doesn't include it. Ask an administrator if you need access.
+        </p>
+      </div>
+    );
+  return <Outlet />;
 }
 
 export function InternalShell() {
