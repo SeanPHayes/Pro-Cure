@@ -351,7 +351,7 @@ describe('client portal', () => {
       `/vendor/cost-requests/${crId}`,
     ]);
 
-    const pm =await addUser(a.tenantId, 'Alpha PM', ['project_manager']);
+    const pm = await addUser(a.tenantId, 'Alpha PM', ['project_manager']);
     const r = await post(a.clientToken, ct.json().id, { bodyText: 'When will the lobby chairs arrive?' });
     expect(r.statusCode).toBe(201);
     expect((await notificationsFor(pm.id)).some((n) => n.type === 'message')).toBe(true);
