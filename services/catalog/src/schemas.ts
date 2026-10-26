@@ -1,4 +1,4 @@
-import { IsoDate, Origin, PageQuery, page, SpecCategory } from '@procure/domain';
+import { IsoDate, Origin, PageQuery, page, patchOf, SpecCategory } from '@procure/domain';
 import { z } from '@procure/platform';
 
 /** Query-string boolean: accepts true/false/1/0. */
@@ -81,7 +81,7 @@ export const BrandStandardItemInput = z.object({
 });
 export type BrandStandardItemInput = z.infer<typeof BrandStandardItemInput>;
 
-export const BrandStandardItemPatch = BrandStandardItemInput.partial().extend({
+export const BrandStandardItemPatch = patchOf(BrandStandardItemInput).extend({
   area: z.string().trim().min(1).max(120).optional(),
   category: SpecCategory.optional(),
 });
@@ -299,7 +299,7 @@ export const ProductInput = z.object({
   brandStandardItemIds: z.array(z.uuid()).max(500).optional(),
   status: ProductStatus.optional(),
 });
-export const ProductPatch = ProductInput.omit({ vendorId: true }).partial();
+export const ProductPatch = patchOf(ProductInput.omit({ vendorId: true }));
 
 export const ProductListQuery = PageQuery.extend({
   vendorId: z.uuid().optional(),
@@ -374,7 +374,11 @@ export const InternalVendor = z.object({
     origin: z.enum(['domestic', 'international']).nullable(),
     transitDays: z.number().nullable(),
   }),
-  hq: z.object({ city: z.string().nullable(), region: z.string().nullable(), country: z.string().nullable() }),
+  hq: z.object({
+    city: z.string().nullable(),
+    region: z.string().nullable(),
+    country: z.string().nullable(),
+  }),
 });
 
 export const InternalBrandStandard = z.object({

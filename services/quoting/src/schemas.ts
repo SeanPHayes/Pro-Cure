@@ -6,6 +6,7 @@ import {
   LineFlag,
   PageQuery,
   page,
+  patchOf,
   QuantityMode,
   QuoteStatus,
   SpecCategory,
@@ -84,7 +85,7 @@ export const SpecInput = z.object({
   brandStandardItemId: z.uuid().nullable().optional(),
   notes: optStr,
 });
-export const SpecPatch = SpecInput.partial().extend({ archived: z.boolean().optional() });
+export const SpecPatch = patchOf(SpecInput).extend({ archived: z.boolean().optional() });
 
 export const SpecListQuery = PageQuery.extend({
   category: z.string().optional(),
@@ -175,7 +176,7 @@ export const MasterSpecInput = z.object({
   description: optStr,
   notes: optStr,
 });
-export const MasterSpecPatch = MasterSpecInput.partial().extend({ archived: z.boolean().optional() });
+export const MasterSpecPatch = patchOf(MasterSpecInput).extend({ archived: z.boolean().optional() });
 
 // ---------------------------------------------------------------- quotes
 export const FlagCounts = z.object(
@@ -319,7 +320,7 @@ export const RoomTypeInput = z.object({
   count: z.number().int().min(0).max(100_000),
   sort: z.number().int().optional(),
 });
-export const RoomTypePatch = RoomTypeInput.partial();
+export const RoomTypePatch = patchOf(RoomTypeInput);
 
 export const LocationInput = z.object({
   name: z.string().trim().min(1).max(200),
@@ -327,7 +328,7 @@ export const LocationInput = z.object({
   kind: z.enum(['area', 'room', 'category']).default('area'),
   sort: z.number().int().optional(),
 });
-export const LocationPatch = LocationInput.partial();
+export const LocationPatch = patchOf(LocationInput);
 export const LocationDeleteQuery = z.object({
   /** Move lines in the deleted subtree here (otherwise they become unassigned). */
   moveLinesTo: z.uuid().optional(),
@@ -771,7 +772,7 @@ export const ApprovalPolicyInput = z.object({
   approverRole: z.string().trim().min(1).max(64),
   description: optStr,
 });
-export const ApprovalPolicyPatch = ApprovalPolicyInput.partial();
+export const ApprovalPolicyPatch = patchOf(ApprovalPolicyInput);
 
 export const ApprovalRequest = z.object({
   id: z.string(),

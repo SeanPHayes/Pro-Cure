@@ -140,7 +140,9 @@ describe('spec library', () => {
     const p = await A.patch(`/specs/${s.id}`, { cost: 225, costExpiresAt: daysFromNow(5) });
     expect(p.status).toBe(200);
     expect(p.body.costStatus).toBe('expiring');
-    const d = (await A.get(`/specs/${s.id}`)).body;
+    // A partial update must not reset defaulted fields it didn't mention.
+    expect(p.body.category).toBe('seating');
+    const d =(await A.get(`/specs/${s.id}`)).body;
     expect(d.costHistory.map((h: any) => h.cost)).toEqual([225, 210]);
     expect(d.usage.quoteCount).toBe(0);
 

@@ -62,3 +62,17 @@ export const EntityType = z.enum([
   'user',
 ]);
 export type EntityType = z.infer<typeof EntityType>;
+
+/**
+ * PATCH body from a create schema: every field optional and **no defaults**. Zod's `.partial()` keeps
+ * `.default()` values, so a patch that omits a defaulted field would silently reset it.
+ */
+export const patchOf = <T extends z.ZodObject>(schema: T) =>
+  z.object(
+    Object.fromEntries(
+      Object.entries(schema.shape).map(([k, v]) => [
+        k,
+        (v instanceof z.ZodDefault ? (v.unwrap() as z.ZodType) : (v as z.ZodType)).optional(),
+      ]),
+    ) as { [K in keyof T['shape']]: z.ZodOptional<z.ZodType<Exclude<z.output<T['shape'][K]>, undefined>>> },
+  );
