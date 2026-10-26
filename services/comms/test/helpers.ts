@@ -73,7 +73,7 @@ export function stubClients() {
           base64: Buffer.from('%PDF-1.4 test').toString('base64'),
         };
   });
-  vi.spyOn(clients, 'getProject').mockResolvedValue({ id: crypto.randomUUID(), clientOrgId: null });
+  vi.spyOn(clients, 'portalCanSee').mockResolvedValue(false);
   vi.spyOn(clients, 'setShipmentTracking').mockResolvedValue({ ok: true });
   vi.spyOn(clients, 'setShipDate').mockResolvedValue({ ok: true });
   vi.spyOn(clients, 'setPoRequirement').mockResolvedValue({ ok: true });

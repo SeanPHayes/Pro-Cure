@@ -324,12 +324,12 @@ describe('client portal', () => {
     ).json();
 
     // Not their project → 404; their project → created.
-    vi.mocked(clients.getProject).mockResolvedValueOnce({ id: projectId, clientOrgId: b.clientOrgId });
+    vi.mocked(clients.portalCanSee).mockResolvedValueOnce(false);
     expect(
       (await threadFor(a.clientToken, { entityType: 'project', entityId: projectId, visibility: 'client' }))
         .statusCode,
     ).toBe(404);
-    vi.mocked(clients.getProject).mockResolvedValueOnce({ id: projectId, clientOrgId: a.clientOrgId });
+    vi.mocked(clients.portalCanSee).mockResolvedValueOnce(true);
     const ct = await threadFor(a.clientToken, {
       entityType: 'project',
       entityId: projectId,
@@ -338,7 +338,20 @@ describe('client portal', () => {
     expect(ct.statusCode).toBe(200);
     expect(ct.json()).not.toHaveProperty('clientOrgId');
 
-    const pm = await addUser(a.tenantId, 'Alpha PM', ['project_manager']);
+    // Vendors can start a conversation on a cost request they can see, but not one they can't.
+    const crId = crypto.randomUUID();
+    const vq = { entityType: 'cost_request', entityId: crId, visibility: 'vendor' };
+    vi.mocked(clients.portalCanSee).mockResolvedValueOnce(false);
+    expect((await threadFor(a.vendorToken, vq)).statusCode).toBe(404);
+    vi.mocked(clients.portalCanSee).mockResolvedValueOnce(true);
+    const vt = await threadFor(a.vendorToken, vq);
+    expect(vt.statusCode).toBe(200);
+    expect(vi.mocked(clients.portalCanSee).mock.lastCall?.slice(1)).toEqual([
+      'quoting',
+      `/vendor/cost-requests/${crId}`,
+    ]);
+
+    const pm =await addUser(a.tenantId, 'Alpha PM', ['project_manager']);
     const r = await post(a.clientToken, ct.json().id, { bodyText: 'When will the lobby chairs arrive?' });
     expect(r.statusCode).toBe(201);
     expect((await notificationsFor(pm.id)).some((n) => n.type === 'message')).toBe(true);

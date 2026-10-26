@@ -1,4 +1,5 @@
-import { callService } from '@procure/platform';
+import type { ServiceName } from '@procure/domain';
+import { callService, type Principal } from '@procure/platform';
 
 /**
  * Synchronous calls comms makes to other services. Grouped on one mutable object so tests can stub
@@ -86,9 +87,14 @@ export const clients = {
     return callService('documents', `/internal/documents/${documentId}/content`, { query: { tenantId } });
   },
 
-  /** projects: the project (to verify a client org may open a thread on it). */
-  getProject(tenantId: string, projectId: string): Promise<{ id: string; clientOrgId: string | null }> {
-    return callService('projects', `/internal/projects/${projectId}`, { query: { tenantId } });
+  /**
+   * Whether a portal user can read an entity, asked of the owning service's portal API with the user's
+   * own token (so their row-level security decides). Used before opening a thread for them.
+   */
+  portalCanSee(principal: Principal, service: ServiceName, path: string): Promise<boolean> {
+    return callService(service, path, { principal })
+      .then(() => true)
+      .catch(() => false);
   },
 
   /** orders: set tracking on a shipment (inbox suggestion `set_tracking`). */

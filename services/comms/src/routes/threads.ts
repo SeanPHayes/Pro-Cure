@@ -1,5 +1,14 @@
-import { page } from '@procure/domain';
-import { type App, forbidden, must, notFound, type Principal, type Tx, z } from '@procure/platform';
+import { page, type ServiceName } from '@procure/domain';
+import {
+  type App,
+  callService,
+  forbidden,
+  must,
+  notFound,
+  type Principal,
+  type Tx,
+  z,
+} from '@procure/platform';
 import { clients } from '../clients.js';
 import { asService } from '../context.js';
 import { queueEmail } from '../email/outbound.js';
@@ -95,6 +104,21 @@ async function threadDetail(tx: Tx, p: Principal, t: ThreadRow, limit: number, o
  *   under RLS; a client may open a new thread on a project shared with their org (verified with
  *   the projects service). Vendor threads are opened by staff/events (cost requests, POs).
  */
+/** Where a portal user's read access to an entity is checked before a thread is opened for them. */
+const PORTAL_ENTITY: Record<'vendor' | 'client', Record<string, [ServiceName, string]>> = {
+  vendor: {
+    cost_request: ['quoting', '/vendor/cost-requests'],
+    purchase_order: ['orders', '/vendor/purchase-orders'],
+    claim: ['orders', '/vendor/claims'],
+  },
+  client: {
+    project: ['projects', '/client/projects'],
+    quote: ['quoting', '/client/quotes'],
+    claim: ['orders', '/client/claims'],
+    invoice: ['finance', '/client/invoices'],
+  },
+};
+
 async function threadFor(tx: Tx, p: Principal, q: z.infer<typeof ThreadForQuery>) {
   if (p.isVendor || p.isClient) {
     const visibility = p.isVendor ? 'vendor' : 'client';
@@ -109,9 +133,12 @@ async function threadFor(tx: Tx, p: Principal, q: z.infer<typeof ThreadForQuery>
     } as const;
     const existing = await findThread(tx, key);
     if (existing) return existing;
-    if (p.isClient && q.entityType === 'project') {
-      const project = await clients.getProject(p.tenantId, q.entityId).catch(() => null);
-      if (project?.clientOrgId === p.orgId) {
+    // Open the conversation on first use if the caller can see the entity in its owning service's portal
+    // API (which applies their own row-level security), so owners and vendors can start a thread too.
+    const via = PORTAL_ENTITY[visibility][q.entityType];
+    if (via) {
+      const visible = await clients.portalCanSee(p, via[0], `${via[1]}/${encodeURIComponent(q.entityId)}`);
+      if (visible) {
         const { thread } = await asService(tx, p.tenantId, () =>
           getOrCreateThread(tx, { ...key, subject: q.subject, createdByUserId: p.userId }),
         );
